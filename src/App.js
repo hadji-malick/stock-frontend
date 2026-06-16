@@ -8,7 +8,14 @@ import ConfirmationModal from './components/ui/ConfirmationModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from './assets/logo.png';  // <-- IMPORT DU LOGO
-import bgAccueil from './assets/acceuil.png';  
+import bgAccueil from './assets/acceuil.png'; 
+import FournisseurManagement from './components/FournisseurManagement'; 
+import CommandeFournisseur from './components/CommandeFournisseur';
+import CommandeConfirmation from './pages/CommandeConfirmation';
+import CommandeModification from './pages/CommandeModification';
+import ConfirmationModification from './pages/ConfirmationModification';
+import AccepterModification from './pages/AccepterModification';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // ==================== STYLES (CORPORATE BLEU) ====================
 const styles = {
@@ -247,12 +254,15 @@ const validerVente = async () => {
       vendeur: user?.nom || 'Vendeur',
       commentaire: ''
     });
-    toast.success(`✅ Vente validée ! Facture: ${res.data.numeroFacture}`);
+    toast.success(`✅ Vente validée ! Facture: ${res.data.numeroFacture}`, {
+      duration: 5000,
+      icon: '🧾'
+    });
     setPanier([]);
     if (onSaleComplete) onSaleComplete();
 
-    // Impression automatique du ticket
-    imprimerTicket(res.data);
+    // Impression sans bloquer la fenêtre principale
+    imprimerTicketSilencieux(res.data);
   } catch (err) {
     toast.error(err.response?.data?.error || 'Erreur');
   } finally {
@@ -260,7 +270,7 @@ const validerVente = async () => {
   }
 };
 
-const imprimerTicket = (data) => {
+const imprimerTicketSilencieux = (data) => {
   const ticketHtml = `
     <!DOCTYPE html>
     <html>
@@ -268,14 +278,7 @@ const imprimerTicket = (data) => {
       <title>Ticket Powertech</title>
       <style>
         body { font-family: monospace; padding: 20px; margin:0; }
-        .ticket {
-          max-width: 300px;
-          margin: auto;
-          border: 1px solid #ccc;
-          padding: 20px;
-          border-radius: 12px;
-          text-align: center;
-        }
+        .ticket { max-width: 300px; margin: auto; border: 1px solid #ccc; padding: 20px; border-radius: 12px; text-align: center; }
         .logo { width: 80px; margin-bottom: 10px; }
         .header { font-size: 18px; font-weight: bold; }
         .sub { font-size: 10px; color: #666; margin-bottom: 15px; }
@@ -285,7 +288,6 @@ const imprimerTicket = (data) => {
         @media print {
           body { margin: 0; padding: 0; }
           .ticket { border: none; padding: 10px; }
-          .no-print { display: none; }
         }
       </style>
     </head>
@@ -308,14 +310,7 @@ const imprimerTicket = (data) => {
           <span>TOTAL</span>
           <span>${data.total.toLocaleString()} FCFA</span>
         </div>
-        <div class="footer">
-          Merci de votre visite !<br/>
-          Dakar, Sénégal
-        </div>
-      </div>
-      <div class="no-print" style="text-align:center; margin-top:20px;">
-        <button onclick="window.print()" style="padding:8px 16px;">🖨️ Imprimer</button>
-        <button onclick="window.close()" style="padding:8px 16px;">❌ Fermer</button>
+        <div class="footer">Merci de votre visite !<br/>Dakar, Sénégal</div>
       </div>
       <script>
         window.onload = function() {
@@ -326,7 +321,8 @@ const imprimerTicket = (data) => {
     </body>
     </html>
   `;
-  const win = window.open('', '_blank');
+  // Fenêtre très petite, presque invisible
+  const win = window.open('', '_blank', 'width=400,height=300,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
   win.document.write(ticketHtml);
   win.document.close();
 };
@@ -627,7 +623,7 @@ function StockManagement() {
   const [topProduits, setTopProduits] = useState([]);
   const [totalVentes, setTotalVentes] = useState(0);
   const [chiffreAffaire, setChiffreAffaire] = useState(0);
-  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '' });
+  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
   const [refresh, setRefresh] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [showStockModal, setShowStockModal] = useState(false);
@@ -642,6 +638,7 @@ function StockManagement() {
   const [filtreDateFin, setFiltreDateFin] = useState('');
   const [filtreVendeur, setFiltreVendeur] = useState('');
   const [filtreProduit, setFiltreProduit] = useState('');
+  const [fournisseurs, setFournisseurs] = useState([]);
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -654,7 +651,38 @@ function StockManagement() {
     fetchStats();
     fetchVentes();
     fetchCAMois();
+    fetchFournisseurs();
   }, [refresh]);
+
+  const playSound = (type) => {
+    if (!window.hasUserInteracted) return;
+    const sounds = {
+      warning: '/sounds/warning.wav',
+      success: '/sounds/success.wav',
+      error: '/sounds/error.wav'
+    };
+    if (sounds[type]) {
+      const audio = new Audio(sounds[type]);
+      audio.volume = 0.3;
+      audio.play().catch(() => console.log('Son bloqué'));
+    }
+  };
+
+  useEffect(() => {
+    const markInteraction = () => {
+      window.hasUserInteracted = true;
+      document.removeEventListener('click', markInteraction);
+    };
+    document.addEventListener('click', markInteraction);
+    return () => document.removeEventListener('click', markInteraction);
+  }, []);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
   const [caMois, setCaMois] = useState(0);
 
 const fetchCAMois = async () => {
@@ -673,7 +701,18 @@ const fetchCAMois = async () => {
         const lastAlert = localStorage.getItem('lastLowStockAlert');
         const today = new Date().toDateString();
         if (lastAlert !== today) {
-          toast.error(`${lowStock.length} produit(s) en stock bas !`, { duration: 5000 });
+          playSound('warning');
+          toast.error(`⚠️ ${lowStock.length} produit(s) en stock bas !`, {
+            duration: 10000,
+            position: 'top-right',
+            icon: '⚠️'
+          });
+          if (Notification.permission === 'granted') {
+            new Notification('Stock bas !', {
+              body: `${lowStock.length} produit(s) ont atteint leur seuil d'alerte`,
+              icon: '/logo.png'
+            });
+          }
           localStorage.setItem('lastLowStockAlert', today);
         }
       }
@@ -695,18 +734,39 @@ const fetchCAMois = async () => {
       setTopProduits(Array.from(prodMap.entries()).map(([nom, qty]) => ({ nom, quantite: qty })).sort((a,b)=>b.quantite-a.quantite).slice(0,5));
     } catch(e) { console.error(e); }
   };
+  const fetchFournisseurs = async () => {
+  try {
+    const token = localStorage.getItem('token');
+    const res = await axios.get('http://localhost:8080/api/fournisseurs', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setFournisseurs(res.data);
+  } catch (err) {
+    console.error('Erreur chargement fournisseurs', err);
+  }
+};
 
   const addProduct = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:8080/api/produits', newProduct);
-      setRefresh(prev => prev+1);
-      setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '' });
-      toast.success('Produit ajouté avec succès');
-    } catch(err) {
-      toast.error(err.response?.data?.error || 'Erreur');
-    }
-  };
+  e.preventDefault();
+  try {
+    const productData = {
+      reference: newProduct.reference,
+      nom: newProduct.nom,
+      prixVente: parseFloat(newProduct.prixVente),
+      quantiteStock: parseInt(newProduct.quantiteStock),
+      fournisseurId: newProduct.fournisseurId || null
+    };
+    
+    await axios.post('http://localhost:8080/api/produits', productData);
+    setRefresh(prev => prev+1);
+    setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
+    setShowStockModal(false);
+    setActiveSection('stocks');  // ← AJOUTEZ CETTE LIGNE
+    toast.success('Produit ajouté avec succès');
+  } catch(err) {
+    toast.error(err.response?.data?.error || 'Erreur');
+  }
+};
   const deleteProduct = async () => {
     if (!productToDelete) return;
     try {
@@ -739,19 +799,29 @@ const fetchCAMois = async () => {
       setRestockLoading(false);
     }
   };
-  const handleUpdateProduct = async () => {
-    if (!produitEdit) return;
-    try {
-      await axios.put(`http://localhost:8080/api/produits/${produitEdit.id}`, produitEdit);
-      setRefresh(prev => prev+1);
-      setShowEditModal(false);
-      setProduitEdit(null);
-      toast.success('Produit modifié avec succès');
-    } catch(err) {
-      toast.error(err.response?.data?.error || 'Erreur');
-    }
-  };
-
+ const handleUpdateProduct = async (e) => {
+  e.preventDefault();  // ← AJOUTEZ CECI si ce n'est pas déjà fait
+  if (!produitEdit) return;
+  try {
+    const updateData = {
+      reference: produitEdit.reference,
+      nom: produitEdit.nom,
+      prixVente: produitEdit.prixVente,
+      seuilAlerte: produitEdit.seuilAlerte || 5,
+      fournisseurId: produitEdit.fournisseur?.id || null
+    };
+    
+    await axios.put(`http://localhost:8080/api/produits/${produitEdit.id}`, updateData);
+    setRefresh(prev => prev + 1);
+    setShowEditModal(false);
+    setProduitEdit(null);
+    setActiveSection('stocks');  // ← AJOUTEZ CETTE LIGNE
+    toast.success('Produit modifié avec succès');
+  } catch(err) {
+    console.error("Erreur :", err);
+    toast.error(err.response?.data?.error || 'Erreur lors de la modification');
+  }
+};
   const imprimerTicketGroupe = (ventesGroupe, total, vendeur) => {
   const doc = new jsPDF();
   doc.setFontSize(18);
@@ -782,9 +852,10 @@ const fetchCAMois = async () => {
   const menuItems = useMemo(() => {
     const items = [];
     if (role === 'ADMIN') {
-      items.push({ section: 'dashboard', label: 'Dashboard', icon: '📊' }, { section: 'stocks', label: 'Gestion des stocks', icon: '📦' }, { section: 'historique', label: 'Historique', icon: '📜' }, { section: 'cloture', label: 'Clôture de caisse', icon: '💰' }, { section: 'utilisateurs', label: 'Utilisateurs', icon: '👥' });
+      items.push({ section: 'dashboard', label: 'Dashboard', icon: '📊' }, { section: 'stocks', label: 'Gestion des stocks', icon: '📦' }, { section: 'commandes', label: 'Commandes', icon: '📦' },{ section: 'historique', label: 'Historique', icon: '📜' }, { section: 'cloture', label: 'Clôture de caisse', icon: '💰' }, { section: 'utilisateurs', label: 'Utilisateurs', icon: '👥' }, { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' } );
     } else if (role === 'STOCK_MANAGER') {
-      items.push({ section: 'dashboard', label: 'Dashboard', icon: '📊' }, { section: 'stocks', label: 'Gestion des stocks', icon: '📦' }, { section: 'historique', label: 'Historique', icon: '📜' }, { section: 'cloture', label: 'Clôture de caisse', icon: '💰' });
+      items.push({ section: 'dashboard', label: 'Dashboard', icon: '📊' }, { section: 'stocks', label: 'Gestion des stocks', icon: '📦' },{ section: 'commandes', label: 'Commandes', icon: '📦' }, { section: 'historique', label: 'Historique', icon: '📜' }, { section: 'cloture', label: 'Clôture de caisse', icon: '💰' },
+    { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' });
     } else if (role === 'VENDEUR') {
       items.push({ section: 'panier', label: 'Vente', icon: '🛒' }, { section: 'cloture', label: 'Clôture caisse', icon: '💰' });
     }
@@ -897,6 +968,8 @@ const groupedVentes = (() => {
                 {activeSection === 'panier' && 'Vente'}
                 {activeSection === 'cloture' && 'Clôture de caisse'}
                 {activeSection === 'utilisateurs' && 'Utilisateurs'}
+                {activeSection === 'fournisseurs' && 'Gestion des fournisseurs'}
+                {activeSection === 'commandes' && 'Commandes fournisseurs'}
               </div>
               <div style={styles.headerSubtitle}>{getRoleLabel()} – Dakar, Sénégal</div>
             </div>
@@ -939,6 +1012,7 @@ const groupedVentes = (() => {
               <th style={{ ...styles.th, padding: '14px 12px' }}>Nom</th>
               <th style={{ ...styles.th, padding: '14px 12px' }}>Prix (FCFA)</th>
               <th style={{ ...styles.th, padding: '14px 12px' }}>Stock</th>
+              <th style={{ ...styles.th, padding: '14px 12px' }}>Fournisseur</th>
               <th style={{ ...styles.th, padding: '14px 12px', textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
@@ -958,21 +1032,12 @@ const groupedVentes = (() => {
                   <td style={styles.td}>
                     <span style={stockBadgeStyle}>{p.quantiteStock}</span>
                   </td>
+                  <td style={styles.td}>{p.fournisseur?.nom || '-'}</td>
                   <td style={{ ...styles.td, textAlign: 'center' }}>
-                    <button
-                      onClick={() => { setProduitEdit(p); setShowEditModal(true); }}
-                      style={{ background: '#3b82f6', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500', marginRight: '8px', transition: '0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#2563eb'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = '#3b82f6'}
-                    >
+                    <button onClick={() => { setProduitEdit(p); setShowEditModal(true); }} style={{ background: '#3b82f6', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500', marginRight: '8px', transition: '0.2s' }}>
                       ✏️ Modifier
                     </button>
-                    <button
-                      onClick={() => { setProductToDelete(p.id); setShowDeleteConfirm(true); }}
-                      style={{ background: '#ef4444', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500', transition: '0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#dc2626'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ef4444'}
-                    >
+                    <button onClick={() => { setProductToDelete(p.id); setShowDeleteConfirm(true); }} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500', transition: '0.2s' }}>
                       🗑️ Supprimer
                     </button>
                   </td>
@@ -981,7 +1046,7 @@ const groupedVentes = (() => {
             })}
             {paginatedProduits.length === 0 && (
               <tr>
-                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Aucun produit trouvé</td>
+                <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Aucun produit trouvé</td>
               </tr>
             )}
           </tbody>
@@ -1013,57 +1078,107 @@ const groupedVentes = (() => {
         </div>
       )}
     </div>
-    {/* Modals de stock */}
-    {showStockModal && (
-      <div style={styles.modal}>
-        <div style={{ ...styles.modalContent, maxWidth: '580px' }}>
-          <div style={styles.flexBetween}>
-            <h3>📦 Gestion des stocks</h3>
-            <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
-          </div>
-          <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid #e2e8f0', marginBottom: '24px' }}>
-            <button onClick={() => setStockTab('add')} style={{ padding: '10px 18px', background: stockTab === 'add' ? '#3b82f6' : 'transparent', color: stockTab === 'add' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>➕ Ajouter</button>
-            <button onClick={() => setStockTab('restock')} style={{ padding: '10px 18px', background: stockTab === 'restock' ? '#3b82f6' : 'transparent', color: stockTab === 'restock' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>📥 Réapprovisionner</button>
-          </div>
-          {stockTab === 'add' && (
-            <form onSubmit={addProduct}>
-              <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({...newProduct, reference: e.target.value})} required /></div>
-              <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({...newProduct, nom: e.target.value})} required /></div>
-              <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({...newProduct, prixVente: e.target.value})} required /></div>
-              <div style={styles.formGroup}><label>Quantité initiale</label><input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({...newProduct, quantiteStock: e.target.value})} required /></div>
-              <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Ajouter</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-            </form>
-          )}
-          {stockTab === 'restock' && (
-            <form onSubmit={handleRestock}>
-              <div style={styles.formGroup}><label>Produit</label><select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required><option value="">-- Sélectionner --</option>{produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}</select></div>
-              <div style={styles.formGroup}><label>Quantité</label><input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required /></div>
-              <div style={styles.formGroup}><label>Fournisseur</label><input type="text" style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)} /></div>
-              <div style={styles.gap2}><button type="submit" style={styles.btnPrimary} disabled={restockLoading}>{restockLoading ? 'Traitement...' : 'Réapprovisionner'}</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-            </form>
-          )}
-        </div>
+   {/* Modals de stock */}
+{showStockModal && (
+  <div style={styles.modal}>
+    <div style={{ ...styles.modalContent, maxWidth: '580px' }}>
+      <div style={styles.flexBetween}>
+        <h3>📦 Gestion des stocks</h3>
+        <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
       </div>
-    )}
-
-    {showEditModal && produitEdit && (
-      <div style={styles.modal}>
-        <div style={{ ...styles.modalContent, maxWidth: '500px' }}>
-          <div style={styles.flexBetween}>
-            <h3>✏️ Modifier le produit</h3>
-            <button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
-          </div>
-          <form onSubmit={handleUpdateProduct}>
-            <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({...produitEdit, reference: e.target.value})} required /></div>
-            <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({...produitEdit, nom: e.target.value})} required /></div>
-            <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({...produitEdit, prixVente: e.target.value})} required /></div>
-            <div style={styles.formGroup}><label>Seuil alerte</label><input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({...produitEdit, seuilAlerte: e.target.value})} /></div>
-            <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Enregistrer</button><button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-          </form>
-        </div>
+      <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid #e2e8f0', marginBottom: '24px' }}>
+        <button onClick={() => setStockTab('add')} style={{ padding: '10px 18px', background: stockTab === 'add' ? '#3b82f6' : 'transparent', color: stockTab === 'add' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>➕ Ajouter</button>
+        <button onClick={() => setStockTab('restock')} style={{ padding: '10px 18px', background: stockTab === 'restock' ? '#3b82f6' : 'transparent', color: stockTab === 'restock' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>📥 Réapprovisionner</button>
       </div>
-    )}
 
+      {/* Ajout produit avec choix du fournisseur */}
+      {stockTab === 'add' && (
+        <form onSubmit={addProduct}>
+          <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({...newProduct, reference: e.target.value})} required /></div>
+          <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({...newProduct, nom: e.target.value})} required /></div>
+          <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({...newProduct, prixVente: e.target.value})} required /></div>
+          <div style={styles.formGroup}><label>Quantité initiale</label><input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({...newProduct, quantiteStock: e.target.value})} required /></div>
+
+          {/* Liste déroulante des fournisseurs */}
+         <div style={styles.formGroup}>
+  <label style={styles.label}>Fournisseur</label>
+  <select
+    style={styles.input}
+    value={newProduct.fournisseurId || ''}
+    onChange={e => setNewProduct({...newProduct, fournisseurId: e.target.value})}
+  >
+    <option value="">-- Aucun --</option>
+    {fournisseurs.map(f => (
+      <option key={f.id} value={f.id}>{f.nom}</option>
+    ))}
+  </select>
+</div>
+
+          <div style={styles.gap2}>
+            <button type="submit" style={styles.btnPrimary}>Ajouter</button>
+            <button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+          </div>
+        </form>
+      )}
+
+      {/* Réapprovisionnement (avec fournisseur optionnel) */}
+      {stockTab === 'restock' && (
+        <form onSubmit={handleRestock}>
+          <div style={styles.formGroup}><label>Produit</label><select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required><option value="">-- Sélectionner --</option>{produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}</select></div>
+          <div style={styles.formGroup}><label>Quantité</label><input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required /></div>
+          <div style={styles.formGroup}><label>Fournisseur</label>
+            <select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}>
+              <option value="">-- Sélectionner un fournisseur --</option>
+              {fournisseurs.map(f => (
+                <option key={f.id} value={f.nom}>{f.nom}</option>
+              ))}
+            </select>
+          </div>
+          <div style={styles.gap2}><button type="submit" style={styles.btnPrimary} disabled={restockLoading}>{restockLoading ? 'Traitement...' : 'Réapprovisionner'}</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
+        </form>
+      )}
+    </div>
+  </div>
+)}
+   {showEditModal && produitEdit && (
+  <div style={styles.modal}>
+    <div style={{ ...styles.modalContent, maxWidth: '500px' }}>
+      <div style={styles.flexBetween}>
+        <h3>✏️ Modifier le produit</h3>
+        <button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
+      </div>
+      <form onSubmit={handleUpdateProduct}>
+        <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({...produitEdit, reference: e.target.value})} required /></div>
+        <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({...produitEdit, nom: e.target.value})} required /></div>
+        <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({...produitEdit, prixVente: e.target.value})} required /></div>
+        <div style={styles.formGroup}><label>Seuil alerte</label><input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({...produitEdit, seuilAlerte: e.target.value})} /></div>
+
+        {/* SELECT FOURNISSEUR - DOIT ÊTRE AVANT LES BOUTONS */}
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Fournisseur</label>
+          <select
+            style={styles.input}
+            value={produitEdit.fournisseur?.id || ''}
+            onChange={e => setProduitEdit({
+              ...produitEdit,
+              fournisseur: e.target.value ? { id: parseInt(e.target.value) } : null
+            })}
+          >
+            <option value="">-- Aucun --</option>
+            {fournisseurs.map(f => (
+              <option key={f.id} value={f.id}>{f.nom}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={styles.gap2}>
+          <button type="submit" style={styles.btnPrimary}>Enregistrer</button>
+          <button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
     <ConfirmationModal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={deleteProduct} title="Confirmation" message="Supprimer ce produit ?" />
   </div>
 )}
@@ -1135,6 +1250,8 @@ const groupedVentes = (() => {
         {activeSection === 'panier' && <CartComponent produits={produits} user={user} onSaleComplete={() => setRefresh(prev => prev+1)} />}
         {activeSection === 'cloture' && <CashClosureComponent onCloture={() => setRefresh(prev => prev+1)} />}
         {activeSection === 'utilisateurs' && <UserManagementComponent />}
+        {activeSection === 'fournisseurs' && <FournisseurManagement />}
+        {activeSection === 'commandes' && <CommandeFournisseur />}
       </div>
     </div>
   );
@@ -1149,9 +1266,22 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        {/* Route publique pour la confirmation de commande */}
+        <Route path="/commande/confirmer/:token" element={<CommandeConfirmation />} />
+        <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
+        <Route path="/commande/modifier/:token" element={<CommandeModification />} />
+        <Route path="/confirmation-modification" element={<ConfirmationModification />} />
+
+        {/* Route principale avec authentification */}
+        <Route path="/*" element={
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        } />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
