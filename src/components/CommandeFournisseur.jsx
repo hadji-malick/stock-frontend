@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import ExpeditionStatus from './ExpeditionStatus';
 
 export default function CommandeFournisseur() {
   const [commandes, setCommandes] = useState([]);
@@ -10,15 +11,23 @@ export default function CommandeFournisseur() {
   const [loading, setLoading] = useState(false);
   const [showNewProductModal, setShowNewProductModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDevisModal, setShowDevisModal] = useState(false);
   const [showModifModal, setShowModifModal] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
   const [selectedLignes, setSelectedLignes] = useState([]);
+  const [commandeDevis, setCommandeDevis] = useState(null);
+  const [devisDetail, setDevisDetail] = useState(null);
   const [commandeModif, setCommandeModif] = useState(null);
   const [modificationsDetail, setModificationsDetail] = useState(null);
+  
+  // ===== PAGINATION =====
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
   
   const [newProductTemp, setNewProductTemp] = useState({
     reference: '',
     nom: '',
+    marque: '',
     prixVente: '',
     prixAchat: '',
     quantiteStock: 0
@@ -33,8 +42,8 @@ export default function CommandeFournisseur() {
   
   const [ligneTemp, setLigneTemp] = useState({
     produitId: '',
-    quantite: 1,
-    prixUnitaire: 0
+    marque: '',
+    quantite: 1
   });
 
   // Générer le numéro de commande automatique
@@ -68,19 +77,37 @@ export default function CommandeFournisseur() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setCommandes(res.data);
-
-      const pendingModifications = res.data.filter(c => c.statut === 'MODIFICATION_ENVOYEE');
-      const lastAlertDate = localStorage.getItem('lastModificationAlertDate');
-      const today = new Date().toDateString();
-      if (pendingModifications.length > 0 && lastAlertDate !== today) {
-        toast.info(`📝 ${pendingModifications.length} commande(s) avec modifications en attente`, {
-          duration: 8000,
-          icon: '📝'
-        });
-        localStorage.setItem('lastModificationAlertDate', today);
-      }
     } catch (err) {
       console.error('Erreur chargement commandes', err);
+    }
+  };
+
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [commandeDate, setCommandeDate] = useState(null);
+  const [dateExpeditionProposee, setDateExpeditionProposee] = useState('');
+
+  const openDateExpeditionModal = (commande) => {
+    setCommandeDate(commande);
+    setShowDateModal(true);
+  };
+
+  const proposerDateExpedition = async () => {
+    if (!dateExpeditionProposee) {
+      toast.error('Veuillez sélectionner une date');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:8080/api/commandes/${commandeDate.id}/proposer-date`, {
+        dateExpedition: dateExpeditionProposee
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Date d\'expédition proposée avec succès');
+      setShowDateModal(false);
+      fetchCommandes();
+    } catch (err) {
+      toast.error('Erreur');
     }
   };
 
@@ -117,6 +144,18 @@ export default function CommandeFournisseur() {
     }
   };
 
+  const fetchDevisDetail = async (commandeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:8080/api/commandes/${commandeId}/devis-detail`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDevisDetail(res.data);
+    } catch (err) {
+      console.error('Erreur chargement devis', err);
+    }
+  };
+
   const createProductAndAddToCommande = async () => {
     if (!newProductTemp.reference || !newProductTemp.nom || !newProductTemp.prixVente) {
       toast.error('Veuillez remplir la référence, le nom et le prix de vente');
@@ -126,6 +165,7 @@ export default function CommandeFournisseur() {
       const productData = {
         reference: newProductTemp.reference,
         nom: newProductTemp.nom,
+        marque: newProductTemp.marque || '',
         prixVente: parseFloat(newProductTemp.prixVente),
         prixAchat: newProductTemp.prixAchat ? parseFloat(newProductTemp.prixAchat) : null,
         quantiteStock: 0
@@ -142,12 +182,12 @@ export default function CommandeFournisseur() {
       
       setLigneTemp({
         produitId: nouveauProduit.id,
-        quantite: 1,
-        prixUnitaire: nouveauProduit.prixAchat || nouveauProduit.prixVente
+        marque: nouveauProduit.marque || '',
+        quantite: 1
       });
       
       setShowNewProductModal(false);
-      setNewProductTemp({ reference: '', nom: '', prixVente: '', prixAchat: '', quantiteStock: 0 });
+      setNewProductTemp({ reference: '', nom: '', marque: '', prixVente: '', prixAchat: '', quantiteStock: 0 });
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur création produit');
     }
@@ -156,7 +196,6 @@ export default function CommandeFournisseur() {
   const ajouterLigne = () => {
     const produitId = parseInt(ligneTemp.produitId);
     const quantite = parseInt(ligneTemp.quantite);
-    const prixUnitaire = parseFloat(ligneTemp.prixUnitaire);
     
     if (isNaN(produitId) || produitId <= 0) {
       toast.error('Veuillez sélectionner un produit');
@@ -166,10 +205,6 @@ export default function CommandeFournisseur() {
       toast.error('La quantité doit être supérieure à 0');
       return;
     }
-    if (isNaN(prixUnitaire) || prixUnitaire <= 0) {
-      toast.error('Le prix unitaire doit être supérieur à 0');
-      return;
-    }
     
     const produit = produits.find(p => p.id === produitId);
     if (!produit) {
@@ -177,20 +212,19 @@ export default function CommandeFournisseur() {
       return;
     }
     
-    const sousTotal = quantite * prixUnitaire;
-    
     setNewCommande(prev => ({
       ...prev,
       lignes: [...prev.lignes, {
         produitId: produitId,
         produitNom: produit.nom,
+        marque: ligneTemp.marque || produit.marque || 'Non spécifiée',
         quantite: quantite,
-        prixUnitaire: prixUnitaire,
-        sousTotal: sousTotal
+        prixUnitaire: 0,
+        sousTotal: 0
       }]
     }));
     
-    setLigneTemp({ produitId: '', quantite: 1, prixUnitaire: 0 });
+    setLigneTemp({ produitId: '', marque: '', quantite: 1 });
     toast.success('Produit ajouté à la commande');
   };
 
@@ -200,8 +234,6 @@ export default function CommandeFournisseur() {
       lignes: prev.lignes.filter((_, i) => i !== index)
     }));
   };
-
-  const totalCommande = newCommande.lignes.reduce((sum, l) => sum + l.sousTotal, 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -225,18 +257,16 @@ export default function CommandeFournisseur() {
         lignes: newCommande.lignes.map(l => ({
           produitId: l.produitId,
           quantite: l.quantite,
-          prixUnitaire: l.prixUnitaire
+          prixUnitaire: 0,
+          marque: l.marque || ''
         }))
       };
       
       await axios.post('http://localhost:8080/api/commandes', commandeData, {
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      toast.success('📦 Nouvelle commande fournisseur créée', {
-        duration: 5000,
-        icon: '📦'
-      });
+      
+      toast.success('✅ Demande de devis créée avec succès');
       setShowModal(false);
       setNewCommande({ fournisseurId: '', numero: '', commentaire: '', lignes: [] });
       fetchCommandes();
@@ -276,6 +306,20 @@ export default function CommandeFournisseur() {
     }
   };
 
+  const openDevisModal = async (commande) => {
+    setCommandeDevis(commande);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`http://localhost:8080/api/commandes/${commande.id}/devis-detail`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDevisDetail(res.data);
+      setShowDevisModal(true);
+    } catch (err) {
+      toast.error('Erreur chargement du devis');
+    }
+  };
+
   const openModificationModal = async (commande) => {
     setCommandeModif(commande);
     try {
@@ -290,27 +334,55 @@ export default function CommandeFournisseur() {
     }
   };
 
-const approuverModification = async (commandeId) => {
-  try {
-    const token = localStorage.getItem('token');
-    const response = await axios.post(`http://localhost:8080/api/commandes/${commandeId}/approuver-modification`, {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    toast.success('✅ Modification approuvée !');
-    setShowModifModal(false);
-    fetchCommandes();
-  } catch (err) {
-    console.error('Erreur:', err);
-    toast.error('Erreur lors de l\'approbation');
-  }
-};
+  const validerDevis = async (commandeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:8080/api/commandes/${commandeId}/valider-devis`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('✅ Devis validé, commande confirmée !');
+      setShowDevisModal(false);
+      fetchCommandes();
+    } catch (err) {
+      toast.error('Erreur lors de la validation');
+    }
+  };
+
+  const refuserDevis = async (commandeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:8080/api/commandes/${commandeId}/refuser-devis`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('❌ Devis refusé');
+      setShowDevisModal(false);
+      fetchCommandes();
+    } catch (err) {
+      toast.error('Erreur lors du refus');
+    }
+  };
+
+  const approuverModification = async (commandeId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:8080/api/commandes/${commandeId}/approuver-modification`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('✅ Modification approuvée');
+      setShowModifModal(false);
+      fetchCommandes();
+    } catch (err) {
+      toast.error('Erreur lors de l\'approbation');
+    }
+  };
+
   const refuserModification = async (commandeId) => {
     try {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:8080/api/commandes/${commandeId}/refuser-modification`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('Modification refusée');
+      toast.success('❌ Modification refusée');
       setShowModifModal(false);
       fetchCommandes();
     } catch (err) {
@@ -324,10 +396,7 @@ const approuverModification = async (commandeId) => {
       await axios.post(`http://localhost:8080/api/commandes/${commandeId}/envoyer-email`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('📧 Email envoyé au fournisseur', {
-        duration: 4000,
-        icon: '📧'
-      });
+      toast.success('📧 Demande de devis envoyée au fournisseur');
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi');
     }
@@ -335,15 +404,15 @@ const approuverModification = async (commandeId) => {
 
   const getStatutBadge = (statut) => {
     switch(statut) {
-      case 'EN_ATTENTE': return { color: '#f59e0b', bg: '#fef3c7', label: '⏳ En attente' };
-      case 'CONFIRMEE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Confirmée' };
+      case 'DEMANDE_CREEE': return { color: '#f59e0b', bg: '#fef3c7', label: '📝 Demande créée' };
+      case 'DEVIS_ENVOYE': return { color: '#3b82f6', bg: '#eff6ff', label: '📄 Devis reçu' };
+      case 'DEVIS_VALIDE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Devis validé' };
+      case 'DEVIS_REFUSE': return { color: '#ef4444', bg: '#fee2e2', label: '❌ Devis refusé' };
       case 'MODIFICATION_ENVOYEE': return { color: '#f97316', bg: '#fff7ed', label: '⚠️ Modification proposée' };
       case 'MODIFICATION_APPROUVEE': return { color: '#f59e0b', bg: '#fef3c7', label: '⏳ En attente confirmation' };
-      case 'MODIFICATION_ACCEPTEE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Modification acceptée' };
-      case 'MODIFICATION_REFUSEE': return { color: '#ef4444', bg: '#fee2e2', label: '❌ Modification refusée' };
+      case 'COMMANDE_CONFIRMEE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Commande confirmée' };
       case 'EXPEDIEE': return { color: '#3b82f6', bg: '#eff6ff', label: '📦 Expédiée' };
       case 'LIVREE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Livrée' };
-      case 'ANNULEE': return { color: '#ef4444', bg: '#fee2e2', label: '❌ Annulée' };
       default: return { color: '#6b7280', bg: '#f3f4f6', label: statut };
     }
   };
@@ -370,11 +439,24 @@ const approuverModification = async (commandeId) => {
     ligneItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px' }
   };
 
+  // ===== CALCUL DE LA PAGINATION =====
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentCommandes = commandes.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(commandes.length / itemsPerPage);
+
+  // Réinitialiser la page quand les commandes changent
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [commandes.length]);
+
   return (
     <div style={styles.card}>
       <div style={styles.flexBetween}>
-        <div style={styles.cardTitle}>📦 Commandes fournisseurs</div>
-        <button style={styles.btnPrimary} onClick={() => setShowModal(true)}>➕ Nouvelle commande</button>
+        <div style={styles.cardTitle}>📦 Gestion des commandes</div>
+        <button style={styles.btnPrimary} onClick={() => setShowModal(true)}>➕ Nouvelle demande</button>
       </div>
 
       <div style={{ overflowX: 'auto' }}>
@@ -388,17 +470,18 @@ const approuverModification = async (commandeId) => {
               <th style={styles.th}>Statut</th>
               <th style={styles.th}>Produits</th>
               <th style={styles.th}>Actions</th>
+              <th style={styles.th}>Expédition</th>
             </tr>
           </thead>
           <tbody>
-            {commandes.map(c => {
+            {currentCommandes.map(c => {
               const badge = getStatutBadge(c.statut);
               return (
                 <tr key={c.id}>
                   <td style={styles.td}>{c.numero}</td>
                   <td style={styles.td}>{c.fournisseur?.nom}</td>
                   <td style={styles.td}>{new Date(c.dateCommande).toLocaleDateString()}</td>
-                  <td style={styles.td}>{c.montantTotal?.toLocaleString()} FCFA</td>
+                  <td style={styles.td}>{c.montantTotal?.toLocaleString() || 0} FCFA</td>
                   <td style={styles.td}>
                     <span style={{ background: badge.bg, color: badge.color, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '500' }}>
                       {badge.label}
@@ -409,6 +492,11 @@ const approuverModification = async (commandeId) => {
                   </td>
                   <td style={styles.td}>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {/* DEMANDE_CREEE : envoyer email */}
+                      {c.statut === 'DEMANDE_CREEE' && (
+                        <button style={styles.btnPrimary} onClick={() => envoyerEmailCommande(c.id)}>📧 Envoyer demande</button>
+                      )}
+                      
                       {/* MODIFICATION_ENVOYEE : voir et traiter */}
                       {c.statut === 'MODIFICATION_ENVOYEE' && (
                         <>
@@ -418,38 +506,84 @@ const approuverModification = async (commandeId) => {
                         </>
                       )}
                       
-                      {/* EN ATTENTE : peut envoyer email */}
-                      {c.statut === 'EN_ATTENTE' && (
-                        <button style={styles.btnPrimary} onClick={() => envoyerEmailCommande(c.id)}>📧 Envoyer email</button>
+                      {/* DEVIS_ENVOYE : voir et traiter */}
+                      {c.statut === 'DEVIS_ENVOYE' && (
+                        <>
+                          <button style={styles.btnWarning} onClick={() => openDevisModal(c)}>📄 Voir devis</button>
+                          <button style={styles.btnSuccess} onClick={() => validerDevis(c.id)}>✅ Valider devis</button>
+                          <button style={styles.btnDanger} onClick={() => refuserDevis(c.id)}>❌ Refuser devis</button>
+                        </>
                       )}
                       
-                      {/* EN ATTENTE ou CONFIRMEE : peut expédier */}
-                      {(c.statut === 'EN_ATTENTE' || c.statut === 'CONFIRMEE') && (
-                        <button style={styles.btnWarning} onClick={() => updateStatut(c.id, 'EXPEDIEE')}>📦 Expédier</button>
+                      {/* DEVIS_VALIDE ou COMMANDE_CONFIRMEE : expédier */}
+                      {(c.statut === 'DEVIS_VALIDE' || c.statut === 'COMMANDE_CONFIRMEE') && (
+                        <>
+                          <button style={styles.btnWarning} onClick={() => updateStatut(c.id, 'EXPEDIEE')}>📦 Expédier</button>
+                          {!c.dateExpeditionProposee && (
+                            <button style={styles.btnPrimary} onClick={() => openDateExpeditionModal(c)}>📅 Proposer date</button>
+                          )}
+                        </>
                       )}
-                      
-                      {/* EXPEDIEE : peut livrer */}
+
+                      {/* EXPEDIEE : livrer */}
                       {c.statut === 'EXPEDIEE' && (
                         <button style={styles.btnSuccess} onClick={() => updateStatut(c.id, 'LIVREE')}>✅ Livrer</button>
                       )}
-                      
-                      {/* Annuler : pour EN_ATTENTE, CONFIRMEE, EXPEDIEE */}
-                      {(c.statut === 'EN_ATTENTE' || c.statut === 'CONFIRMEE' || c.statut === 'EXPEDIEE') && (
-                        <button style={styles.btnDanger} onClick={() => updateStatut(c.id, 'ANNULEE')}>❌ Annuler</button>
-                      )}
                     </div>
+                  </td>
+                  <td style={styles.td}>
+                    <ExpeditionStatus commandeId={c.id} />
                   </td>
                 </tr>
               );
             })}
             {commandes.length === 0 && (
               <tr>
-                <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>Aucune commande</td>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>Aucune commande</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* ===== PAGINATION ===== */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+          <button 
+            onClick={() => setCurrentPage(p => Math.max(1, p-1))} 
+            disabled={currentPage === 1}
+            style={{ 
+              padding: '8px 16px', 
+              borderRadius: '30px', 
+              background: currentPage === 1 ? '#e2e8f0' : '#f1f5f9',
+              border: 'none', 
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer', 
+              fontWeight: '500',
+              opacity: currentPage === 1 ? 0.5 : 1
+            }}
+          >
+            ◀ Précédent
+          </button>
+          <span style={{ padding: '8px 16px', background: '#f1f5f9', borderRadius: '30px', fontSize: '14px', fontWeight: '500' }}>
+            Page {currentPage} / {totalPages}
+          </span>
+          <button 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} 
+            disabled={currentPage === totalPages}
+            style={{ 
+              padding: '8px 16px', 
+              borderRadius: '30px', 
+              background: currentPage === totalPages ? '#e2e8f0' : '#f1f5f9',
+              border: 'none', 
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', 
+              fontWeight: '500',
+              opacity: currentPage === totalPages ? 0.5 : 1
+            }}
+          >
+            Suivant ▶
+          </button>
+        </div>
+      )}
 
       {/* MODAL DÉTAILS PRODUITS */}
       {showDetailModal && selectedCommande && (
@@ -464,6 +598,7 @@ const approuverModification = async (commandeId) => {
                 <thead>
                   <tr>
                     <th style={styles.th}>Produit</th>
+                    <th style={styles.th}>Marque</th>
                     <th style={styles.th}>Quantité</th>
                     <th style={styles.th}>Prix unitaire</th>
                     <th style={styles.th}>Total</th>
@@ -473,6 +608,7 @@ const approuverModification = async (commandeId) => {
                   {selectedLignes.map(l => (
                     <tr key={l.id}>
                       <td style={styles.td}>{l.produit?.nom}</td>
+                      <td style={styles.td}>{l.marque || '-'}</td>
                       <td style={styles.td}>{l.quantite}</td>
                       <td style={styles.td}>{l.prixUnitaire?.toLocaleString()} FCFA</td>
                       <td style={styles.td}>{l.sousTotal?.toLocaleString()} FCFA</td>
@@ -481,7 +617,7 @@ const approuverModification = async (commandeId) => {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
+                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
                     <td style={{ fontWeight: 'bold' }}>{selectedCommande.montantTotal?.toLocaleString()} FCFA</td>
                   </tr>
                 </tfoot>
@@ -491,7 +627,71 @@ const approuverModification = async (commandeId) => {
         </div>
       )}
 
-      {/* MODAL POUR VOIR LES MODIFICATIONS PROPOSÉES */}
+      {/* MODAL DEVIS */}
+      {showDevisModal && commandeDevis && devisDetail && (
+        <div style={styles.modal}>
+          <div style={{ ...styles.modalContent, maxWidth: '700px' }}>
+            <div style={styles.flexBetween}>
+              <h3>📄 Devis reçu</h3>
+              <button onClick={() => setShowDevisModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+            </div>
+            
+            <p><strong>Commande N° :</strong> {commandeDevis.numero}</p>
+            <p><strong>Fournisseur :</strong> {commandeDevis.fournisseur?.nom}</p>
+            
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Produit</th>
+                  <th style={styles.th}>Quantité</th>
+                  <th style={styles.th}>Prix unitaire</th>
+                  <th style={styles.th}>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {devisDetail.lignes?.map((ligne, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{ligne.produitNom}</td>
+                    <td style={styles.td}>{ligne.quantite}</td>
+                    <td style={styles.td}>{ligne.prixUnitaire?.toLocaleString()} FCFA</td>
+                    <td style={styles.td}>{ligne.sousTotal?.toLocaleString()} FCFA</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Sous-total :</td>
+                  <td style={{ fontWeight: 'bold' }}>{devisDetail.sousTotal?.toLocaleString()} FCFA</td>
+                </tr>
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'right' }}>Frais de transport :</td>
+                  <td>{devisDetail.fraisTransport?.toLocaleString()} FCFA</td>
+                </tr>
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
+                  <td style={{ fontWeight: 'bold', color: '#f97316' }}>{devisDetail.total?.toLocaleString()} FCFA</td>
+                </tr>
+                <tr>
+                  <td colSpan="4" style={{ fontSize: '12px', color: '#64748b' }}>
+                    Délai de livraison : {devisDetail.delaiLivraison} jours
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+            
+            <div style={{ marginTop: '20px', textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button style={{ ...styles.btnSuccess, padding: '10px 24px' }} onClick={() => validerDevis(commandeDevis.id)}>
+                ✅ Valider le devis
+              </button>
+              <button style={{ ...styles.btnDanger, padding: '10px 24px' }} onClick={() => refuserDevis(commandeDevis.id)}>
+                ❌ Refuser le devis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL MODIFICATIONS PROPOSÉES */}
       {showModifModal && commandeModif && modificationsDetail && (
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: '700px' }}>
@@ -516,31 +716,22 @@ const approuverModification = async (commandeId) => {
                   <th style={styles.th}>Quantité proposée</th>
                   <th style={styles.th}>Prix initial</th>
                   <th style={styles.th}>Prix proposé</th>
-                  <th style={styles.th}>Différence</th>
                 </tr>
               </thead>
               <tbody>
-                {modificationsDetail.lignes?.map((ligne, idx) => {
-                  const quantiteDiff = (ligne.quantiteProposee || 0) - (ligne.quantiteCommandee || 0);
-                  const prixDiff = (ligne.prixPropose || 0) - (ligne.prixInitial || 0);
-                  return (
-                    <tr key={idx}>
-                      <td style={styles.td}>{ligne.produitNom}</td>
-                      <td style={styles.td}>{ligne.quantiteCommandee}</td>
-                      <td style={styles.td} style={{ color: quantiteDiff !== 0 ? '#f97316' : 'inherit' }}>
-                        {ligne.quantiteProposee || 0}
-                        {quantiteDiff !== 0 && <span style={{ fontSize: '11px' }}> ({quantiteDiff > 0 ? `+${quantiteDiff}` : quantiteDiff})</span>}
-                      </td>
-                      <td style={styles.td}>{ligne.prixInitial?.toLocaleString()} FCFA</td>
-                      <td style={styles.td} style={{ color: prixDiff !== 0 ? '#f97316' : 'inherit' }}>
-                        {ligne.prixPropose?.toLocaleString() || 0} FCFA
-                      </td>
-                      <td style={styles.td}>
-                        {quantiteDiff !== 0 || prixDiff !== 0 ? '🟡 Modifié' : '⚪ Inchangé'}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {modificationsDetail.lignes?.map((ligne, idx) => (
+                  <tr key={idx}>
+                    <td style={styles.td}>{ligne.produitNom}</td>
+                    <td style={styles.td}>{ligne.quantiteCommandee}</td>
+                    <td style={styles.td} style={{ color: (ligne.quantiteProposee || 0) !== ligne.quantiteCommandee ? '#f97316' : 'inherit' }}>
+                      {ligne.quantiteProposee || 0}
+                    </td>
+                    <td style={styles.td}>{ligne.prixInitial?.toLocaleString()} FCFA</td>
+                    <td style={styles.td} style={{ color: (ligne.prixPropose || 0) !== ligne.prixInitial ? '#f97316' : 'inherit' }}>
+                      {ligne.prixPropose?.toLocaleString() || 0} FCFA
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
             
@@ -556,12 +747,32 @@ const approuverModification = async (commandeId) => {
         </div>
       )}
 
+      {/* MODAL DATE D'EXPÉDITION */}
+      {showDateModal && commandeDate && (
+        <div style={styles.modal}>
+          <div style={styles.modalContent}>
+            <div style={styles.flexBetween}>
+              <h3>📅 Proposer une date d'expédition</h3>
+              <button onClick={() => setShowDateModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Date d'expédition proposée</label>
+              <input type="datetime-local" style={styles.input} value={dateExpeditionProposee} onChange={e => setDateExpeditionProposee(e.target.value)} />
+            </div>
+            <div style={styles.gap2}>
+              <button style={styles.btnPrimary} onClick={proposerDateExpedition}>📤 Proposer la date</button>
+              <button style={styles.btnSecondary} onClick={() => setShowDateModal(false)}>Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL NOUVELLE COMMANDE */}
       {showModal && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={styles.flexBetween}>
-              <h3>📝 Nouvelle commande fournisseur</h3>
+              <h3>📝 Nouvelle demande de devis</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
             </div>
             <form onSubmit={handleSubmit}>
@@ -591,19 +802,19 @@ const approuverModification = async (commandeId) => {
                       <option value="">-- Choisir --</option>
                       {produits.map(p => (
                         <option key={p.id} value={p.id}>
-                          {p.nom} - Stock: {p.quantiteStock} - {p.prixVente?.toLocaleString()} FCFA
+                          {p.nom} - {p.marque || 'Sans marque'} - Stock: {p.quantiteStock}
                         </option>
                       ))}
                     </select>
                     <button type="button" style={styles.btnPrimary} onClick={() => setShowNewProductModal(true)}>➕ Nouveau</button>
                   </div>
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Quantité</label>
-                    <input type="number" style={styles.input} value={ligneTemp.quantite} onChange={e => setLigneTemp({...ligneTemp, quantite: e.target.value})} min="1" />
+                    <label style={styles.label}>Marque</label>
+                    <input type="text" style={styles.input} value={ligneTemp.marque} onChange={e => setLigneTemp({...ligneTemp, marque: e.target.value})} placeholder="DELL, HP, SAMSUNG..." />
                   </div>
                   <div style={styles.formGroup}>
-                    <label style={styles.label}>Prix unitaire (FCFA)</label>
-                    <input type="number" style={styles.input} value={ligneTemp.prixUnitaire} onChange={e => setLigneTemp({...ligneTemp, prixUnitaire: e.target.value})} min="0" step="100" />
+                    <label style={styles.label}>Quantité</label>
+                    <input type="number" style={styles.input} value={ligneTemp.quantite} onChange={e => setLigneTemp({...ligneTemp, quantite: e.target.value})} min="1" />
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                     <button type="button" style={styles.btnPrimary} onClick={ajouterLigne}>➕ Ajouter</button>
@@ -613,23 +824,20 @@ const approuverModification = async (commandeId) => {
 
               {newCommande.lignes.length > 0 && (
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={styles.cardTitle}>📋 Produits commandés</div>
+                  <div style={styles.cardTitle}>📋 Produits demandés</div>
                   {newCommande.lignes.map((l, idx) => (
                     <div key={idx} style={styles.ligneItem}>
-                      <div style={{ flex: 2 }}><strong>{l.produitNom}</strong></div>
-                      <div style={{ flex: 1, textAlign: 'center' }}>{l.quantite} x {l.prixUnitaire.toLocaleString()} FCFA</div>
-                      <div style={{ flex: 1, textAlign: 'right', fontWeight: 'bold' }}>{l.sousTotal.toLocaleString()} FCFA</div>
+                      <div style={{ flex: 2 }}><strong>{l.produitNom}</strong> ({l.marque || 'Sans marque'})</div>
+                      <div style={{ flex: 1, textAlign: 'center' }}>{l.quantite} unités</div>
+                      <div style={{ flex: 1, textAlign: 'right' }}>Prix à définir</div>
                       <button type="button" style={{ ...styles.btnDanger, marginLeft: '12px', padding: '4px 8px' }} onClick={() => retirerLigne(idx)}>🗑️</button>
                     </div>
                   ))}
-                  <div style={{ textAlign: 'right', marginTop: '12px', fontSize: '16px', fontWeight: 'bold' }}>
-                    Total: {totalCommande.toLocaleString()} FCFA
-                  </div>
                 </div>
               )}
 
               <div style={styles.gap2}>
-                <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Création...' : 'Valider la commande'}</button>
+                <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Création...' : '📤 Créer la demande'}</button>
                 <button type="button" onClick={() => setShowModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
               </div>
             </form>
@@ -654,12 +862,12 @@ const approuverModification = async (commandeId) => {
               <input style={styles.input} value={newProductTemp.nom} onChange={e => setNewProductTemp({...newProductTemp, nom: e.target.value})} />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Prix de vente (FCFA) *</label>
-              <input type="number" style={styles.input} value={newProductTemp.prixVente} onChange={e => setNewProductTemp({...newProductTemp, prixVente: e.target.value})} />
+              <label style={styles.label}>Marque</label>
+              <input style={styles.input} value={newProductTemp.marque} onChange={e => setNewProductTemp({...newProductTemp, marque: e.target.value})} placeholder="DELL, HP, SAMSUNG..." />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Prix d'achat (FCFA) - optionnel</label>
-              <input type="number" style={styles.input} value={newProductTemp.prixAchat} onChange={e => setNewProductTemp({...newProductTemp, prixAchat: e.target.value})} />
+              <label style={styles.label}>Prix de vente (FCFA) *</label>
+              <input type="number" style={styles.input} value={newProductTemp.prixVente} onChange={e => setNewProductTemp({...newProductTemp, prixVente: e.target.value})} />
             </div>
             <div style={styles.gap2}>
               <button style={styles.btnPrimary} onClick={createProductAndAddToCommande}>Créer et ajouter</button>

@@ -16,7 +16,7 @@ import CommandeModification from './pages/CommandeModification';
 import ConfirmationModification from './pages/ConfirmationModification';
 import AccepterModification from './pages/AccepterModification';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
+import RealTimeNotification from './components/RealTimeNotification';
 // ==================== STYLES (CORPORATE BLEU) ====================
 const styles = {
   container: { display: 'flex', minHeight: '100vh', background: '#fcf9f8', fontFamily: "'Inter', system-ui, sans-serif" },
@@ -641,7 +641,7 @@ function StockManagement() {
   const [fournisseurs, setFournisseurs] = useState([]);
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   // Modal suppression
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -938,6 +938,8 @@ const groupedVentes = (() => {
   return (
     <div style={styles.container}>
       <Toaster position="top-right" />
+      {/* ===== AJOUTE RealTimeNotification ICI ===== */}
+      <RealTimeNotification />
       <div style={styles.sidebar}>
 <div style={styles.sidebarHeader}>
   <div style={styles.sidebarLogoContainer}>
