@@ -16,6 +16,12 @@ import CommandeModification from './pages/CommandeModification';
 import ConfirmationModification from './pages/ConfirmationModification';
 import AccepterModification from './pages/AccepterModification';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import ConfirmerDateExpedition from './pages/ConfirmerDateExpedition';
+import CommandeRejeterDemande from './pages/CommandeRejeterDemande';
+import DevisFournisseur from './pages/DevisFournisseur';
+import ExpeditionStatus from './components/ExpeditionStatus';
+import RealTimeNotification from './components/RealTimeNotification';
+
 
 // ==================== STYLES (CORPORATE BLEU) ====================
 const styles = {
@@ -641,7 +647,7 @@ function StockManagement() {
   const [fournisseurs, setFournisseurs] = useState([]);
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 20;
   // Modal suppression
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
@@ -800,7 +806,7 @@ const fetchCAMois = async () => {
     }
   };
  const handleUpdateProduct = async (e) => {
-  e.preventDefault();  // ← AJOUTEZ CECI si ce n'est pas déjà fait
+  e.preventDefault();  
   if (!produitEdit) return;
   try {
     const updateData = {
@@ -815,7 +821,7 @@ const fetchCAMois = async () => {
     setRefresh(prev => prev + 1);
     setShowEditModal(false);
     setProduitEdit(null);
-    setActiveSection('stocks');  // ← AJOUTEZ CETTE LIGNE
+    setActiveSection('stocks');  
     toast.success('Produit modifié avec succès');
   } catch(err) {
     console.error("Erreur :", err);
@@ -938,6 +944,8 @@ const groupedVentes = (() => {
   return (
     <div style={styles.container}>
       <Toaster position="top-right" />
+      {/* ===== AJOUTE RealTimeNotification ICI ===== */}
+      <RealTimeNotification />
       <div style={styles.sidebar}>
 <div style={styles.sidebarHeader}>
   <div style={styles.sidebarLogoContainer}>
@@ -1273,7 +1281,10 @@ function App() {
         <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
         <Route path="/commande/modifier/:token" element={<CommandeModification />} />
         <Route path="/confirmation-modification" element={<ConfirmationModification />} />
-
+        <Route path="/commande/confirmer-date/:token" element={<ConfirmerDateExpedition />} />
+        <Route path="/commande/rejeter-demande/:token" element={<CommandeRejeterDemande />} />
+        <Route path="/commande/devis/:token" element={<DevisFournisseur />} />
+        <Route path="/commande/expedition/:id" element={<ExpeditionStatus />} />
         {/* Route principale avec authentification */}
         <Route path="/*" element={
           <AuthProvider>
