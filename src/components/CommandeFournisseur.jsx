@@ -403,40 +403,271 @@ export default function CommandeFournisseur() {
   };
 
   const getStatutBadge = (statut) => {
+    const baseStyle = {
+      padding: '4px 12px',
+      borderRadius: '20px',
+      fontSize: '12px',
+      fontWeight: '500',
+      display: 'inline-block'
+    };
+    
     switch(statut) {
-      case 'DEMANDE_CREEE': return { color: '#f59e0b', bg: '#fef3c7', label: '📝 Demande créée' };
-      case 'DEVIS_ENVOYE': return { color: '#3b82f6', bg: '#eff6ff', label: '📄 Devis reçu' };
-      case 'DEVIS_VALIDE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Devis validé' };
-      case 'DEVIS_REFUSE': return { color: '#ef4444', bg: '#fee2e2', label: '❌ Devis refusé' };
-      case 'MODIFICATION_ENVOYEE': return { color: '#f97316', bg: '#fff7ed', label: '⚠️ Modification proposée' };
-      case 'MODIFICATION_APPROUVEE': return { color: '#f59e0b', bg: '#fef3c7', label: '⏳ En attente confirmation' };
-      case 'COMMANDE_CONFIRMEE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Commande confirmée' };
-      case 'EXPEDIEE': return { color: '#3b82f6', bg: '#eff6ff', label: '📦 Expédiée' };
-      case 'LIVREE': return { color: '#10b981', bg: '#d1fae5', label: '✅ Livrée' };
-      default: return { color: '#6b7280', bg: '#f3f4f6', label: statut };
+      case 'DEMANDE_CREEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-warning)', 
+          color: 'var(--badge-warning)',
+          label: '📝 Demande créée' 
+        };
+      case 'DEVIS_ENVOYE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-info)', 
+          color: 'var(--badge-info)',
+          label: '📄 Devis reçu' 
+        };
+      case 'DEVIS_VALIDE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-success)', 
+          color: 'var(--badge-success)',
+          label: '✅ Devis validé' 
+        };
+      case 'DEVIS_REFUSE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-danger)', 
+          color: 'var(--badge-danger)',
+          label: '❌ Devis refusé' 
+        };
+      case 'MODIFICATION_ENVOYEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-warning)', 
+          color: 'var(--badge-warning)',
+          label: '⚠️ Modification proposée' 
+        };
+      case 'MODIFICATION_APPROUVEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-info)', 
+          color: 'var(--badge-info)',
+          label: '⏳ En attente confirmation' 
+        };
+      case 'COMMANDE_CONFIRMEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-success)', 
+          color: 'var(--badge-success)',
+          label: '✅ Commande confirmée' 
+        };
+      case 'EXPEDIEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-info)', 
+          color: 'var(--badge-info)',
+          label: '📦 Expédiée' 
+        };
+      case 'LIVREE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-success)', 
+          color: 'var(--badge-success)',
+          label: '✅ Livrée' 
+        };
+      case 'ANNULEE': 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-danger)', 
+          color: 'var(--badge-danger)',
+          label: '❌ ANNULÉE' 
+        };
+      default: 
+        return { 
+          ...baseStyle, 
+          background: 'var(--bg-badge-default)', 
+          color: 'var(--text-secondary)',
+          label: statut 
+        };
     }
   };
 
+  // ===== STYLES AVEC VARIABLES CSS =====
   const styles = {
-    card: { background: 'white', borderRadius: '20px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.03)', border: '1px solid #e2e8f0', marginBottom: '24px' },
-    cardTitle: { fontSize: '18px', fontWeight: '700', color: '#0f172a', marginBottom: '16px' },
-    table: { width: '100%', borderCollapse: 'collapse' },
-    th: { textAlign: 'left', padding: '12px', background: '#f8fafc', fontSize: '12px', fontWeight: '600', color: '#475569', borderBottom: '1px solid #e2e8f0' },
-    td: { padding: '12px', borderBottom: '1px solid #f1f5f9', fontSize: '14px', color: '#1e293b' },
-    btnPrimary: { background: '#3b82f6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '40px', cursor: 'pointer', fontWeight: '600' },
-    btnSecondary: { background: '#e2e8f0', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '30px', cursor: 'pointer', fontWeight: '500', fontSize: '12px' },
-    btnSuccess: { background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '30px', cursor: 'pointer', fontWeight: '500', fontSize: '12px' },
-    btnWarning: { background: '#f59e0b', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '30px', cursor: 'pointer', fontWeight: '500', fontSize: '12px' },
-    btnDanger: { background: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '30px', cursor: 'pointer', fontWeight: '500', fontSize: '12px' },
-    input: { width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '12px', fontSize: '14px' },
-    label: { display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: '#334155' },
-    formGroup: { marginBottom: '16px' },
-    modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' },
-    modalContent: { background: 'white', borderRadius: '24px', padding: '28px', width: '700px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto' },
-    flexBetween: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
-    gap2: { display: 'flex', gap: '12px' },
-    grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
-    ligneItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px' }
+    card: { 
+      background: 'var(--bg-card)', 
+      borderRadius: '20px', 
+      padding: '24px', 
+      boxShadow: 'var(--shadow)', 
+      border: '1px solid var(--border-color)', 
+      marginBottom: '24px',
+      transition: 'background 0.3s ease, border 0.3s ease'
+    },
+    cardTitle: { 
+      fontSize: '18px', 
+      fontWeight: '700', 
+      color: 'var(--text-primary)', 
+      marginBottom: '16px',
+      transition: 'color 0.3s ease'
+    },
+    table: { 
+      width: '100%', 
+      borderCollapse: 'collapse' 
+    },
+    th: { 
+      textAlign: 'left', 
+      padding: '12px', 
+      background: 'var(--bg-table-header)', 
+      fontSize: '12px', 
+      fontWeight: '600', 
+      color: 'var(--text-secondary)', 
+      borderBottom: '1px solid var(--border-color)',
+      transition: 'background 0.3s ease, color 0.3s ease'
+    },
+    td: { 
+      padding: '12px', 
+      borderBottom: '1px solid var(--border-color)', 
+      fontSize: '14px', 
+      color: 'var(--text-primary)',
+      transition: 'color 0.3s ease, border 0.3s ease'
+    },
+    btnPrimary: { 
+      background: '#3b82f6', 
+      color: 'white', 
+      border: 'none', 
+      padding: '8px 16px', 
+      borderRadius: '40px', 
+      cursor: 'pointer', 
+      fontWeight: '600' 
+    },
+    btnSecondary: { 
+      background: 'var(--bg-btn-secondary)', 
+      color: 'var(--text-secondary)', 
+      border: '1px solid var(--border-color)', 
+      padding: '6px 12px', 
+      borderRadius: '30px', 
+      cursor: 'pointer', 
+      fontWeight: '500', 
+      fontSize: '12px',
+      transition: 'background 0.3s ease, color 0.3s ease'
+    },
+    btnSuccess: { 
+      background: '#10b981', 
+      color: 'white', 
+      border: 'none', 
+      padding: '6px 12px', 
+      borderRadius: '30px', 
+      cursor: 'pointer', 
+      fontWeight: '500', 
+      fontSize: '12px' 
+    },
+    btnWarning: { 
+      background: '#f59e0b', 
+      color: 'white', 
+      border: 'none', 
+      padding: '6px 12px', 
+      borderRadius: '30px', 
+      cursor: 'pointer', 
+      fontWeight: '500', 
+      fontSize: '12px' 
+    },
+    btnDanger: { 
+      background: '#ef4444', 
+      color: 'white', 
+      border: 'none', 
+      padding: '6px 12px', 
+      borderRadius: '30px', 
+      cursor: 'pointer', 
+      fontWeight: '500', 
+      fontSize: '12px' 
+    },
+    input: { 
+      width: '100%', 
+      padding: '10px 12px', 
+      border: '1px solid var(--input-border)', 
+      borderRadius: '12px', 
+      fontSize: '14px',
+      background: 'var(--bg-input)',
+      color: 'var(--text-primary)',
+      transition: 'background 0.3s ease, color 0.3s ease, border 0.3s ease'
+    },
+    label: { 
+      display: 'block', 
+      fontSize: '13px', 
+      fontWeight: '600', 
+      marginBottom: '6px', 
+      color: 'var(--text-secondary)',
+      transition: 'color 0.3s ease'
+    },
+    formGroup: { 
+      marginBottom: '16px' 
+    },
+    modal: { 
+      position: 'fixed', 
+      top: 0, 
+      left: 0, 
+      right: 0, 
+      bottom: 0, 
+      background: 'rgba(0,0,0,0.5)', 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      zIndex: 1000, 
+      backdropFilter: 'blur(4px)' 
+    },
+    modalContent: { 
+      background: 'var(--bg-card)', 
+      borderRadius: '24px', 
+      padding: '28px', 
+      width: '700px', 
+      maxWidth: '90%', 
+      maxHeight: '80vh', 
+      overflowY: 'auto',
+      border: '1px solid var(--border-color)',
+      transition: 'background 0.3s ease, border 0.3s ease'
+    },
+    flexBetween: { 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '16px' 
+    },
+    gap2: { 
+      display: 'flex', 
+      gap: '12px' 
+    },
+    grid2: { 
+      display: 'grid', 
+      gridTemplateColumns: '1fr 1fr', 
+      gap: '16px' 
+    },
+    ligneItem: { 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      padding: '8px', 
+      background: 'var(--bg-table-row-hover)', 
+      borderRadius: '12px', 
+      marginBottom: '8px',
+      transition: 'background 0.3s ease'
+    },
+    paginationButton: {
+      padding: '8px 16px',
+      borderRadius: '30px',
+      border: 'none',
+      cursor: 'pointer',
+      fontWeight: '500',
+      transition: 'background 0.3s ease, opacity 0.3s ease'
+    },
+    paginationText: {
+      padding: '8px 16px',
+      background: 'var(--bg-table-header)',
+      borderRadius: '30px',
+      fontSize: '14px',
+      fontWeight: '500',
+      color: 'var(--text-secondary)',
+      transition: 'background 0.3s ease, color 0.3s ease'
+    }
   };
 
   // ===== CALCUL DE LA PAGINATION =====
@@ -483,7 +714,15 @@ export default function CommandeFournisseur() {
                   <td style={styles.td}>{new Date(c.dateCommande).toLocaleDateString()}</td>
                   <td style={styles.td}>{c.montantTotal?.toLocaleString() || 0} FCFA</td>
                   <td style={styles.td}>
-                    <span style={{ background: badge.bg, color: badge.color, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '500' }}>
+                    <span style={{ 
+                      background: badge.background, 
+                      color: badge.color, 
+                      padding: badge.padding, 
+                      borderRadius: badge.borderRadius, 
+                      fontSize: badge.fontSize, 
+                      fontWeight: badge.fontWeight,
+                      display: badge.display
+                    }}>
                       {badge.label}
                     </span>
                   </td>
@@ -539,7 +778,7 @@ export default function CommandeFournisseur() {
             })}
             {commandes.length === 0 && (
               <tr>
-                <td colSpan="8" style={{ textAlign: 'center', padding: '40px' }}>Aucune commande</td>
+                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune commande</td>
               </tr>
             )}
           </tbody>
@@ -548,36 +787,32 @@ export default function CommandeFournisseur() {
 
       {/* ===== PAGINATION ===== */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
           <button 
             onClick={() => setCurrentPage(p => Math.max(1, p-1))} 
             disabled={currentPage === 1}
             style={{ 
-              padding: '8px 16px', 
-              borderRadius: '30px', 
-              background: currentPage === 1 ? '#e2e8f0' : '#f1f5f9',
-              border: 'none', 
-              cursor: currentPage === 1 ? 'not-allowed' : 'pointer', 
-              fontWeight: '500',
-              opacity: currentPage === 1 ? 0.5 : 1
+              ...styles.paginationButton,
+              background: currentPage === 1 ? 'var(--bg-btn-secondary)' : 'var(--bg-table-header)',
+              opacity: currentPage === 1 ? 0.5 : 1,
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              color: 'var(--text-secondary)'
             }}
           >
             ◀ Précédent
           </button>
-          <span style={{ padding: '8px 16px', background: '#f1f5f9', borderRadius: '30px', fontSize: '14px', fontWeight: '500' }}>
+          <span style={styles.paginationText}>
             Page {currentPage} / {totalPages}
           </span>
           <button 
             onClick={() => setCurrentPage(p => Math.min(totalPages, p+1))} 
             disabled={currentPage === totalPages}
             style={{ 
-              padding: '8px 16px', 
-              borderRadius: '30px', 
-              background: currentPage === totalPages ? '#e2e8f0' : '#f1f5f9',
-              border: 'none', 
-              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', 
-              fontWeight: '500',
-              opacity: currentPage === totalPages ? 0.5 : 1
+              ...styles.paginationButton,
+              background: currentPage === totalPages ? 'var(--bg-btn-secondary)' : 'var(--bg-table-header)',
+              opacity: currentPage === totalPages ? 0.5 : 1,
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              color: 'var(--text-secondary)'
             }}
           >
             Suivant ▶
@@ -590,8 +825,8 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: '600px' }}>
             <div style={styles.flexBetween}>
-              <h3>📋 Détails de la commande {selectedCommande.numero}</h3>
-              <button onClick={() => setShowDetailModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>📋 Détails de la commande {selectedCommande.numero}</h3>
+              <button onClick={() => setShowDetailModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={styles.table}>
@@ -617,8 +852,8 @@ export default function CommandeFournisseur() {
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
-                    <td style={{ fontWeight: 'bold' }}>{selectedCommande.montantTotal?.toLocaleString()} FCFA</td>
+                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--text-primary)' }}>Total :</td>
+                    <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{selectedCommande.montantTotal?.toLocaleString()} FCFA</td>
                   </tr>
                 </tfoot>
               </table>
@@ -632,12 +867,12 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: '700px' }}>
             <div style={styles.flexBetween}>
-              <h3>📄 Devis reçu</h3>
-              <button onClick={() => setShowDevisModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>📄 Devis reçu</h3>
+              <button onClick={() => setShowDevisModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             
-            <p><strong>Commande N° :</strong> {commandeDevis.numero}</p>
-            <p><strong>Fournisseur :</strong> {commandeDevis.fournisseur?.nom}</p>
+            <p style={{ color: 'var(--text-primary)' }}><strong>Commande N° :</strong> {commandeDevis.numero}</p>
+            <p style={{ color: 'var(--text-primary)' }}><strong>Fournisseur :</strong> {commandeDevis.fournisseur?.nom}</p>
             
             <table style={styles.table}>
               <thead>
@@ -660,19 +895,19 @@ export default function CommandeFournisseur() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Sous-total :</td>
-                  <td style={{ fontWeight: 'bold' }}>{devisDetail.sousTotal?.toLocaleString()} FCFA</td>
+                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--text-primary)' }}>Sous-total :</td>
+                  <td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{devisDetail.sousTotal?.toLocaleString()} FCFA</td>
                 </tr>
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'right' }}>Frais de transport :</td>
-                  <td>{devisDetail.fraisTransport?.toLocaleString()} FCFA</td>
+                  <td colSpan="3" style={{ textAlign: 'right', color: 'var(--text-primary)' }}>Frais de transport :</td>
+                  <td style={{ color: 'var(--text-primary)' }}>{devisDetail.fraisTransport?.toLocaleString()} FCFA</td>
                 </tr>
                 <tr>
-                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total :</td>
+                  <td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--text-primary)' }}>Total :</td>
                   <td style={{ fontWeight: 'bold', color: '#f97316' }}>{devisDetail.total?.toLocaleString()} FCFA</td>
                 </tr>
                 <tr>
-                  <td colSpan="4" style={{ fontSize: '12px', color: '#64748b' }}>
+                  <td colSpan="4" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                     Délai de livraison : {devisDetail.delaiLivraison} jours
                   </td>
                 </tr>
@@ -696,14 +931,14 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: '700px' }}>
             <div style={styles.flexBetween}>
-              <h3>📋 Modifications proposées</h3>
-              <button onClick={() => setShowModifModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>📋 Modifications proposées</h3>
+              <button onClick={() => setShowModifModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             
-            <p><strong>Commande N° :</strong> {commandeModif.numero}</p>
-            <p><strong>Fournisseur :</strong> {commandeModif.fournisseur?.nom}</p>
+            <p style={{ color: 'var(--text-primary)' }}><strong>Commande N° :</strong> {commandeModif.numero}</p>
+            <p style={{ color: 'var(--text-primary)' }}><strong>Fournisseur :</strong> {commandeModif.fournisseur?.nom}</p>
             
-            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', marginBottom: '20px' }}>
+            <div style={{ background: 'var(--bg-table-row-hover)', padding: '12px', borderRadius: '8px', marginBottom: '20px', color: 'var(--text-primary)' }}>
               <strong>📝 Commentaire du fournisseur :</strong><br/>
               {modificationsDetail.commentaire || 'Aucun commentaire'}
             </div>
@@ -723,11 +958,11 @@ export default function CommandeFournisseur() {
                   <tr key={idx}>
                     <td style={styles.td}>{ligne.produitNom}</td>
                     <td style={styles.td}>{ligne.quantiteCommandee}</td>
-                    <td style={styles.td} style={{ color: (ligne.quantiteProposee || 0) !== ligne.quantiteCommandee ? '#f97316' : 'inherit' }}>
+                    <td style={{ ...styles.td, color: (ligne.quantiteProposee || 0) !== ligne.quantiteCommandee ? '#f97316' : 'var(--text-primary)' }}>
                       {ligne.quantiteProposee || 0}
                     </td>
                     <td style={styles.td}>{ligne.prixInitial?.toLocaleString()} FCFA</td>
-                    <td style={styles.td} style={{ color: (ligne.prixPropose || 0) !== ligne.prixInitial ? '#f97316' : 'inherit' }}>
+                    <td style={{ ...styles.td, color: (ligne.prixPropose || 0) !== ligne.prixInitial ? '#f97316' : 'var(--text-primary)' }}>
                       {ligne.prixPropose?.toLocaleString() || 0} FCFA
                     </td>
                   </tr>
@@ -752,8 +987,8 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={styles.flexBetween}>
-              <h3>📅 Proposer une date d'expédition</h3>
-              <button onClick={() => setShowDateModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>📅 Proposer une date d'expédition</h3>
+              <button onClick={() => setShowDateModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Date d'expédition proposée</label>
@@ -772,8 +1007,8 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={styles.modalContent}>
             <div style={styles.flexBetween}>
-              <h3>📝 Nouvelle demande de devis</h3>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>📝 Nouvelle demande de devis</h3>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             <form onSubmit={handleSubmit}>
               <div style={styles.grid2}>
@@ -827,9 +1062,9 @@ export default function CommandeFournisseur() {
                   <div style={styles.cardTitle}>📋 Produits demandés</div>
                   {newCommande.lignes.map((l, idx) => (
                     <div key={idx} style={styles.ligneItem}>
-                      <div style={{ flex: 2 }}><strong>{l.produitNom}</strong> ({l.marque || 'Sans marque'})</div>
-                      <div style={{ flex: 1, textAlign: 'center' }}>{l.quantite} unités</div>
-                      <div style={{ flex: 1, textAlign: 'right' }}>Prix à définir</div>
+                      <div style={{ flex: 2, color: 'var(--text-primary)' }}><strong>{l.produitNom}</strong> ({l.marque || 'Sans marque'})</div>
+                      <div style={{ flex: 1, textAlign: 'center', color: 'var(--text-primary)' }}>{l.quantite} unités</div>
+                      <div style={{ flex: 1, textAlign: 'right', color: 'var(--text-primary)' }}>Prix à définir</div>
                       <button type="button" style={{ ...styles.btnDanger, marginLeft: '12px', padding: '4px 8px' }} onClick={() => retirerLigne(idx)}>🗑️</button>
                     </div>
                   ))}
@@ -850,8 +1085,8 @@ export default function CommandeFournisseur() {
         <div style={styles.modal}>
           <div style={{ ...styles.modalContent, maxWidth: '450px' }}>
             <div style={styles.flexBetween}>
-              <h3>➕ Nouveau produit</h3>
-              <button onClick={() => setShowNewProductModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer' }}>✖️</button>
+              <h3 style={{ color: 'var(--text-primary)' }}>➕ Nouveau produit</h3>
+              <button onClick={() => setShowNewProductModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Référence *</label>
