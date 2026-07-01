@@ -23,473 +23,121 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import RealTimeNotification from './components/RealTimeNotification';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 
+// ==================== HELPER DATE — clé stable YYYY-MM-DD ====================
+// Remplace toLocaleDateString('fr-FR') qui est fragile (fuseau horaire, locale du navigateur).
+// Utilisé partout où on doit comparer ou regrouper des ventes par jour.
+const toDateKey = (d) => {
+  const date = new Date(d);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 // ==================== STYLES (CORPORATE BLEU) ====================
 const styles = {
-  container: { 
-    display: 'flex', 
-    minHeight: '100vh', 
-    background: 'var(--bg-primary)', 
-    fontFamily: "'Inter', system-ui, sans-serif" 
-  },
-  
-  sidebar: { 
-    width: '280px', 
-    background: 'var(--bg-sidebar)', 
-    color: '#f1f5f9', 
-    display: 'flex', 
-    flexDirection: 'column', 
-    position: 'fixed', 
-    height: '100%', 
-    overflowY: 'auto', 
-    boxShadow: '4px 0 20px rgba(0,0,0,0.08)' 
-  },
-  
-  sidebarHeader: { 
-    background: 'var(--bg-sidebar-header)', 
-    padding: '20px 16px', 
-    textAlign: 'center', 
-    marginBottom: '20px' 
-  },
-  
-  sidebarLogo: { 
-    width: '100%', 
-    height: 'auto', 
-    display: 'block' 
-  },
-  
-  sidebarSub: { 
-    fontSize: '11px', 
-    color: '#ffedd5', 
-    marginTop: '4px' 
-  },
-  
-  sidebarLogoContainer: { 
-    backgroundColor: 'white', 
-    width: '100%', 
-    borderRadius: '12px', 
-    overflow: 'hidden', 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  
-  sidebarTitle: { 
-    fontSize: '16px', 
-    fontWeight: 'bold', 
-    color: '#f97316', 
-    letterSpacing: '1px' 
-  },
-  
-  userCard: { 
-    margin: '24px 20px', 
-    padding: '16px', 
-    background: 'var(--bg-user-card)', 
-    borderRadius: '16px', 
-    textAlign: 'center' 
-  },
-  
-  userName: { 
-    fontSize: '15px', 
-    fontWeight: '600', 
-    color: 'white' 
-  },
-  
-  userRole: { 
-    fontSize: '12px', 
-    color: '#94a3b8', 
-    marginTop: '4px' 
-  },
-  
-  navItem: { 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    padding: '12px 20px', 
-    margin: '4px 16px', 
-    borderRadius: '12px', 
-    cursor: 'pointer', 
-    transition: 'all 0.2s', 
-    fontWeight: '500' 
-  },
-  
-  navItemActive: { 
-    background: '#3b82f6', 
-    color: 'white', 
-    boxShadow: '0 4px 8px rgba(59,130,246,0.3)' 
-  },
-  
-  navItemInactive: { 
-    color: '#cbd5e1' 
-  },
-  
-  logoutBtn: { 
-    margin: 'auto 16px 24px 16px', 
-    padding: '12px', 
-    background: 'var(--bg-logout-btn)', 
-    border: 'none', 
-    borderRadius: '12px', 
-    color: '#f87171', 
-    cursor: 'pointer', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '12px', 
-    fontWeight: '500', 
-    transition: '0.2s' 
-  },
-  
-  main: { 
-    flex: 1, 
-    marginLeft: '280px', 
-    padding: '28px 32px',
+  container: {
+    display: 'flex',
+    minHeight: '100vh',
     background: 'var(--bg-primary)',
-    transition: 'background 0.3s ease'
+    fontFamily: "'Inter', system-ui, sans-serif"
   },
-  
-  header: { 
-    background: 'var(--bg-card)', 
-    borderRadius: '20px', 
-    padding: '16px 28px', 
-    marginBottom: '28px', 
-    boxShadow: 'var(--shadow)', 
-    border: '1px solid var(--border-color)', 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center',
-    transition: 'background 0.3s ease, border 0.3s ease'
-  },
-  
-  headerLogo: { 
-    height: '40px', 
-    marginRight: '16px' 
-  },
-  
-  headerTitle: { 
-    fontSize: '22px', 
-    fontWeight: '700', 
-    color: 'var(--text-primary)',
-    transition: 'color 0.3s ease'
-  },
-  
-  headerSubtitle: { 
-    fontSize: '13px', 
-    color: 'var(--text-muted)', 
-    marginTop: '4px',
-    transition: 'color 0.3s ease'
-  },
-  
-  headerPhone: { 
-    fontSize: '14px', 
-    fontWeight: '500', 
-    color: 'var(--text-primary)', 
-    background: 'var(--bg-phone)',
-    padding: '8px 16px', 
-    borderRadius: '40px',
-    transition: 'background 0.3s ease, color 0.3s ease'
-  },
-  
-  statsGrid: { 
-    display: 'grid', 
-    gridTemplateColumns: 'repeat(4, 1fr)', 
-    gap: '20px', 
-    marginBottom: '28px' 
-  },
-  
-  statCard: { 
-    background: 'var(--bg-card)', 
-    borderRadius: '20px', 
-    padding: '20px', 
-    boxShadow: 'var(--shadow)', 
-    border: '1px solid var(--border-color)',
-    transition: 'background 0.3s ease, border 0.3s ease'
-  },
-  
-  statTitle: { 
-    fontSize: '12px', 
-    fontWeight: '600', 
-    color: 'var(--text-muted)', 
-    textTransform: 'uppercase', 
-    letterSpacing: '0.5px' 
-  },
-  
-  statValue: { 
-    fontSize: '30px', 
-    fontWeight: '800', 
-    color: 'var(--text-primary)', 
-    marginTop: '8px',
-    transition: 'color 0.3s ease'
-  },
-  
-  card: { 
-    background: 'var(--bg-card)', 
-    borderRadius: '20px', 
-    padding: '24px', 
-    boxShadow: 'var(--shadow)', 
-    border: '1px solid var(--border-color)', 
-    marginBottom: '24px',
-    transition: 'background 0.3s ease, border 0.3s ease'
-  },
-  
-  cardTitle: { 
-    fontSize: '18px', 
-    fontWeight: '700', 
-    color: 'var(--text-primary)', 
-    marginBottom: '16px', 
-    display: 'flex', 
-    alignItems: 'center', 
-    gap: '8px',
-    transition: 'color 0.3s ease'
-  },
-  
-  table: { 
-    width: '100%', 
-    borderCollapse: 'collapse' 
-  },
-  
-  th: { 
-    textAlign: 'left', 
-    padding: '12px 12px', 
-    background: 'var(--table-header)', 
-    fontSize: '12px', 
-    fontWeight: '600', 
-    color: 'var(--text-secondary)', 
-    borderBottom: '1px solid var(--border-color)',
-    transition: 'background 0.3s ease, color 0.3s ease'
-  },
-  
-  td: { 
-    padding: '12px 12px', 
-    borderBottom: '1px solid var(--border-color)', 
-    fontSize: '14px', 
-    color: 'var(--text-primary)',
-    transition: 'color 0.3s ease, border 0.3s ease'
-  },
-  
-  badge: { 
-    display: 'inline-block', 
-    padding: '4px 12px', 
-    borderRadius: '20px', 
-    fontSize: '12px', 
-    fontWeight: '600' 
-  },
-  
-  badgeSuccess: { 
-    background: '#dcfce7', 
-    color: '#166534' 
-  },
-  
-  badgeWarning: { 
-    background: '#fef3c7', 
-    color: '#92400e' 
-  },
-  
-  btnPrimary: { 
-    background: '#3b82f6', 
-    color: 'white', 
-    border: 'none', 
-    padding: '10px 20px', 
-    borderRadius: '40px', 
-    cursor: 'pointer', 
-    fontWeight: '600', 
-    fontSize: '14px', 
-    transition: '0.2s' 
-  },
-  
-  btnSecondary: { 
-    background: 'var(--bg-btn-secondary)', 
-    color: 'var(--text-secondary)', 
-    border: '1px solid var(--border-color)', 
-    padding: '10px 20px', 
-    borderRadius: '40px', 
-    cursor: 'pointer', 
-    fontWeight: '600', 
-    fontSize: '14px', 
-    transition: '0.2s' 
-  },
-  
-  btnSuccess: { 
-    background: '#10b981', 
-    color: 'white', 
-    border: 'none', 
-    padding: '10px 20px', 
-    borderRadius: '40px', 
-    cursor: 'pointer', 
-    fontWeight: '600' 
-  },
-  
-  btnDanger: { 
-    background: '#ef4444', 
-    color: 'white', 
-    border: 'none', 
-    padding: '6px 14px', 
-    borderRadius: '30px', 
-    cursor: 'pointer', 
-    fontWeight: '500' 
-  },
-  
-  formGroup: { 
-    marginBottom: '18px' 
-  },
-  
-  label: { 
-    display: 'block', 
-    fontSize: '13px', 
-    fontWeight: '600', 
-    marginBottom: '6px', 
-    color: 'var(--text-secondary)',
-    transition: 'color 0.3s ease'
-  },
-  
-  input: { 
-    width: '100%', 
-    padding: '10px 14px', 
-    border: '1px solid var(--input-border)', 
-    borderRadius: '12px', 
-    fontSize: '14px', 
-    outline: 'none', 
-    transition: '0.2s',
-    background: 'var(--bg-input)',
-    color: 'var(--text-primary)'
-  },
-  
-  modal: { 
-    position: 'fixed', 
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    bottom: 0, 
-    background: 'rgba(0,0,0,0.5)', 
-    display: 'flex', 
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    zIndex: 1000, 
-    backdropFilter: 'blur(4px)' 
-  },
-  
-  modalContent: { 
-    background: 'var(--bg-card)', 
-    borderRadius: '24px', 
-    padding: '28px', 
-    width: '500px', 
-    maxWidth: '90%', 
-    boxShadow: 'var(--shadow-lg)',
-    border: '1px solid var(--border-color)',
-    transition: 'background 0.3s ease, border 0.3s ease'
-  },
-  
-  flexBetween: { 
-    display: 'flex', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    marginBottom: '16px' 
-  },
-  
-  gap2: { 
-    display: 'flex', 
-    gap: '12px' 
-  },
-  
-  productGrid: { 
-    display: 'grid', 
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-    gap: '20px', 
-    marginTop: '16px' 
-  },
-  
-  productCard: { 
-    border: '1px solid var(--border-color)', 
-    borderRadius: '16px', 
-    padding: '16px', 
-    background: 'var(--bg-card)',
-    transition: 'background 0.3s ease, border 0.3s ease'
-  },
-  
-  productName: { 
-    fontSize: '15px', 
-    fontWeight: '700', 
-    marginBottom: '8px',
-    color: 'var(--text-primary)'
-  },
-  
-  productPrice: { 
-    fontSize: '18px', 
-    fontWeight: '800', 
-    color: '#3b82f6', 
-    marginBottom: '6px' 
-  },
-  // Styles pour l'historique
-  filterContainer: {
+  sidebar: {
+    width: '280px',
+    background: 'var(--bg-sidebar)',
+    color: '#f1f5f9',
     display: 'flex',
-    gap: '16px',
-    flexWrap: 'wrap',
-    marginBottom: '24px',
-    alignItems: 'flex-end'
+    flexDirection: 'column',
+    position: 'fixed',
+    height: '100%',
+    overflowY: 'auto',
+    boxShadow: '4px 0 20px rgba(0,0,0,0.08)'
   },
-  filterGroup: {
-    flex: 1,
-    minWidth: '150px'
-  },
-  groupCard: {
-    marginBottom: '28px',
-    border: '1px solid var(--border-color)',
-    borderRadius: '20px',
-    overflow: 'hidden',
-    transition: 'border-color 0.3s ease'
-  },
-  groupHeader: {
-    background: 'var(--bg-table-header)',
-    padding: '14px 20px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '12px',
-    transition: 'background 0.3s ease'
-  },
-  groupHeaderText: {
-    color: 'var(--text-primary)'
-  },
-  groupTotal: {
-    color: 'var(--text-primary)',
-    fontWeight: 'bold'
-  },
-  emptyState: {
+  sidebarHeader: {
+    background: 'var(--bg-sidebar-header)',
+    padding: '20px 16px',
     textAlign: 'center',
-    padding: '40px',
-    color: 'var(--text-muted)'
+    marginBottom: '20px'
   },
-  resetButton: {
-    background: 'var(--bg-btn-secondary)',
-    color: 'var(--text-secondary)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '40px',
-    padding: '0 20px',
-    height: '42px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    transition: 'background 0.3s ease, color 0.3s ease'
+  sidebarLogo: { width: '100%', height: 'auto', display: 'block' },
+  sidebarSub: { fontSize: '11px', color: '#ffedd5', marginTop: '4px' },
+  sidebarLogoContainer: {
+    backgroundColor: 'white', width: '100%', borderRadius: '12px',
+    overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center'
   },
-  
-  productStock: { 
-    fontSize: '12px', 
-    color: 'var(--text-muted)',
-    transition: 'color 0.3s ease'
-  }
+  sidebarTitle: { fontSize: '16px', fontWeight: 'bold', color: '#f97316', letterSpacing: '1px' },
+  userCard: { margin: '24px 20px', padding: '16px', background: 'var(--bg-user-card)', borderRadius: '16px', textAlign: 'center' },
+  userName: { fontSize: '15px', fontWeight: '600', color: 'white' },
+  userRole: { fontSize: '12px', color: '#94a3b8', marginTop: '4px' },
+  navItem: { display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 20px', margin: '4px 16px', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s', fontWeight: '500' },
+  navItemActive: { background: '#3b82f6', color: 'white', boxShadow: '0 4px 8px rgba(59,130,246,0.3)' },
+  navItemInactive: { color: '#cbd5e1' },
+  logoutBtn: { margin: 'auto 16px 24px 16px', padding: '12px', background: 'var(--bg-logout-btn)', border: 'none', borderRadius: '12px', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px', fontWeight: '500', transition: '0.2s' },
+  main: { flex: 1, marginLeft: '280px', padding: '28px 32px', background: 'var(--bg-primary)', transition: 'background 0.3s ease' },
+  header: { background: 'var(--bg-card)', borderRadius: '20px', padding: '16px 28px', marginBottom: '28px', boxShadow: 'var(--shadow)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.3s ease, border 0.3s ease' },
+  headerLogo: { height: '40px', marginRight: '16px' },
+  headerTitle: { fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)', transition: 'color 0.3s ease' },
+  headerSubtitle: { fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', transition: 'color 0.3s ease' },
+  headerPhone: { fontSize: '14px', fontWeight: '500', color: 'var(--text-primary)', background: 'var(--bg-phone)', padding: '8px 16px', borderRadius: '40px', transition: 'background 0.3s ease, color 0.3s ease' },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '28px' },
+  statCard: { background: 'var(--bg-card)', borderRadius: '20px', padding: '20px', boxShadow: 'var(--shadow)', border: '1px solid var(--border-color)', transition: 'background 0.3s ease, border 0.3s ease' },
+  statTitle: { fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' },
+  statValue: { fontSize: '30px', fontWeight: '800', color: 'var(--text-primary)', marginTop: '8px', transition: 'color 0.3s ease' },
+  card: { background: 'var(--bg-card)', borderRadius: '20px', padding: '24px', boxShadow: 'var(--shadow)', border: '1px solid var(--border-color)', marginBottom: '24px', transition: 'background 0.3s ease, border 0.3s ease' },
+  cardTitle: { fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.3s ease' },
+  table: { width: '100%', borderCollapse: 'collapse' },
+  th: { textAlign: 'left', padding: '12px 12px', background: 'var(--table-header, var(--bg-table-header))', fontSize: '12px', fontWeight: '600', color: 'var(--text-secondary)', borderBottom: '1px solid var(--border-color)', transition: 'background 0.3s ease, color 0.3s ease' },
+  td: { padding: '12px 12px', borderBottom: '1px solid var(--border-color)', fontSize: '14px', color: 'var(--text-primary)', transition: 'color 0.3s ease, border 0.3s ease' },
+  badge: { display: 'inline-block', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' },
+  badgeSuccess: { background: '#dcfce7', color: '#166534' },
+  badgeWarning: { background: '#fef3c7', color: '#92400e' },
+  btnPrimary: { background: '#3b82f6', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '40px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', transition: '0.2s' },
+  btnSecondary: { background: 'var(--bg-btn-secondary)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)', padding: '10px 20px', borderRadius: '40px', cursor: 'pointer', fontWeight: '600', fontSize: '14px', transition: '0.2s' },
+  btnSuccess: { background: '#10b981', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '40px', cursor: 'pointer', fontWeight: '600' },
+  btnDanger: { background: '#ef4444', color: 'white', border: 'none', padding: '6px 14px', borderRadius: '30px', cursor: 'pointer', fontWeight: '500' },
+  formGroup: { marginBottom: '18px' },
+  label: { display: 'block', fontSize: '13px', fontWeight: '600', marginBottom: '6px', color: 'var(--text-secondary)', transition: 'color 0.3s ease' },
+  input: { width: '100%', padding: '10px 14px', border: '1px solid var(--input-border)', borderRadius: '12px', fontSize: '14px', outline: 'none', transition: '0.2s', background: 'var(--bg-input)', color: 'var(--text-primary)' },
+  modal: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' },
+  modalContent: { background: 'var(--bg-card)', borderRadius: '24px', padding: '28px', width: '500px', maxWidth: '90%', boxShadow: 'var(--shadow-lg)', border: '1px solid var(--border-color)', transition: 'background 0.3s ease, border 0.3s ease' },
+  flexBetween: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' },
+  gap2: { display: 'flex', gap: '12px' },
+  productGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px', marginTop: '16px' },
+  productCard: { border: '1px solid var(--border-color)', borderRadius: '16px', padding: '16px', background: 'var(--bg-card)', transition: 'background 0.3s ease, border 0.3s ease' },
+  productName: { fontSize: '15px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-primary)' },
+  productPrice: { fontSize: '18px', fontWeight: '800', color: '#3b82f6', marginBottom: '6px' },
+  productStock: { fontSize: '12px', color: 'var(--text-muted)', transition: 'color 0.3s ease' },
 };
-// ==================== DESIGN TOKENS DARK DASHBOARD ====================
-const T = {
-  bg0: '#0d0f14', bg1: '#13161e', bg2: '#1a1e2a', bg3: '#232838', bg4: '#2d3347',
-  acc: '#3b82f6', ind: '#6366f1', grn: '#10b981', amb: '#f59e0b', rose: '#f43f5e',
-  tx1: '#f1f5f9', tx2: '#94a3b8', tx3: '#475569',
-};
-const SERIES_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#f43f5e'];
-const RANK_BG       = ['#1e3a5f', '#1a2e3a', '#2d1b46', '#1a3a2a', '#3a1a1a'];
-const RANK_TX       = ['#60a5fa', '#22d3ee', '#a78bfa', '#34d399', '#fb7185'];
 
-// ==================== DARK TOOLTIP ====================
-const DarkTooltip = ({ active, payload, label }) => {
+// ==================== TOKENS DASHBOARD : 1 jeu clair + 1 jeu sombre ====================
+const DASH_TOKENS = {
+  dark: {
+    bg0: '#0d0f14', bg1: '#13161e', bg2: '#1a1e2a', bg3: '#232838', bg4: '#2d3347',
+    acc: '#3b82f6', ind: '#6366f1', grn: '#10b981', amb: '#f59e0b', rose: '#f43f5e',
+    tx1: '#f1f5f9', tx2: '#94a3b8', tx3: '#475569',
+    chartGrid: 'rgba(255,255,255,0.06)',
+    badgeBg: '#1e3a5f', badgeTx: '#60a5fa', badgeBorder: '#1e40af',
+  },
+  light: {
+    bg0: '#f8fafc', bg1: '#ffffff', bg2: '#ffffff', bg3: '#f1f5f9', bg4: '#e2e8f0',
+    acc: '#3b82f6', ind: '#6366f1', grn: '#059669', amb: '#d97706', rose: '#e11d48',
+    tx1: '#0f172a', tx2: '#64748b', tx3: '#94a3b8',
+    chartGrid: '#e2e8f0',
+    badgeBg: '#eff6ff', badgeTx: '#2563eb', badgeBorder: '#bfdbfe',
+  },
+};
+
+const SERIES_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#f43f5e'];
+const RANK_BG_DARK  = ['#1e3a5f', '#1a2e3a', '#2d1b46', '#1a3a2a', '#3a1a1a'];
+const RANK_TX_DARK  = ['#60a5fa', '#22d3ee', '#a78bfa', '#34d399', '#fb7185'];
+const RANK_BG_LIGHT = ['#dbeafe', '#cffafe', '#ede9fe', '#d1fae5', '#ffe4e6'];
+const RANK_TX_LIGHT = ['#2563eb', '#0e7490', '#7c3aed', '#059669', '#e11d48'];
+
+// ==================== TOOLTIP THEME-AWARE ====================
+const DashTooltip = ({ active, payload, label, T }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: T.bg2, border: `0.5px solid ${T.bg4}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: T.tx2 }}>
+    <div style={{ background: T.bg2, border: `1px solid ${T.bg4}`, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: T.tx2 }}>
       <div style={{ color: T.tx1, fontWeight: 500, marginBottom: 4 }}>{label}</div>
       {payload.map((p, i) => (
         <div key={i} style={{ color: p.color || T.acc }}>{p.name}: <strong>{p.value}</strong></div>
@@ -499,9 +147,9 @@ const DarkTooltip = ({ active, payload, label }) => {
 };
 
 // ==================== KPI CARD ====================
-const KpiCard = ({ title, value, icon, accentColor, subText, subColor = T.grn }) => (
+const KpiCard = ({ title, value, icon, accentColor, subText, subColor, T }) => (
   <div
-    style={{ background: T.bg2, border: `0.5px solid ${T.bg4}`, borderRadius: 14, padding: 16, position: 'relative', overflow: 'hidden', transition: 'transform .2s', cursor: 'default' }}
+    style={{ background: T.bg2, border: `1px solid ${T.bg4}`, borderRadius: 14, padding: 16, position: 'relative', overflow: 'hidden', transition: 'transform .2s, background .3s, border .3s', cursor: 'default' }}
     onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
     onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
   >
@@ -511,45 +159,51 @@ const KpiCard = ({ title, value, icon, accentColor, subText, subColor = T.grn })
     </div>
     <div style={{ fontSize: 11, color: T.tx2, textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 4 }}>{title}</div>
     <div style={{ fontSize: 22, fontWeight: 600, color: T.tx1, letterSpacing: '-.5px' }}>{value}</div>
-    {subText && <div style={{ fontSize: 11, color: subColor, marginTop: 4 }}>{subText}</div>}
+    {subText && <div style={{ fontSize: 11, color: subColor || T.grn, marginTop: 4 }}>{subText}</div>}
   </div>
 );
 
-// ==================== DARK CARD ====================
-const DCard = ({ children, style = {} }) => (
-  <div style={{ background: T.bg2, border: `0.5px solid ${T.bg4}`, borderRadius: 14, padding: 18, ...style }}>
+// ==================== DASH CARD ====================
+const DCard = ({ children, style = {}, T }) => (
+  <div style={{ background: T.bg2, border: `1px solid ${T.bg4}`, borderRadius: 14, padding: 18, transition: 'background .3s, border .3s', ...style }}>
     {children}
   </div>
 );
-const DCardHeader = ({ title, sub, badge }) => (
+const DCardHeader = ({ title, sub, badge, T }) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
     <div>
       <div style={{ fontSize: 14, fontWeight: 500, color: T.tx1 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: T.tx2, marginTop: 2 }}>{sub}</div>}
     </div>
     {badge && (
-      <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 20, background: '#1e3a5f', color: '#60a5fa', border: '0.5px solid #1e40af' }}>{badge}</span>
+      <span style={{ fontSize: 10, padding: '3px 9px', borderRadius: 20, background: T.badgeBg, color: T.badgeTx, border: `1px solid ${T.badgeBorder}` }}>{badge}</span>
     )}
   </div>
 );
 
 // ==================== MINI BAR ====================
-const MiniBar = ({ pct, color }) => (
+const MiniBar = ({ pct, color, T }) => (
   <div style={{ height: 4, borderRadius: 2, background: T.bg3, overflow: 'hidden', marginTop: 4, width: 80 }}>
     <div style={{ height: '100%', width: `${pct}%`, borderRadius: 2, background: color, transition: 'width .6s ease' }} />
   </div>
 );
 
-// ==================== DASHBOARD DARK PREMIUM ====================
+// ==================== DASHBOARD (theme-aware) ====================
 function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chiffreAffaire, caMois }) {
+  const { theme } = useTheme();
+  const T = DASH_TOKENS[theme] || DASH_TOKENS.light;
+  const RANK_BG = theme === 'dark' ? RANK_BG_DARK : RANK_BG_LIGHT;
+  const RANK_TX = theme === 'dark' ? RANK_TX_DARK : RANK_TX_LIGHT;
+
+  // ── Construction des 14 derniers jours via clé YYYY-MM-DD stable ──────────
   const chartData = useMemo(() => {
     const today = new Date();
     return Array.from({ length: 14 }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() - (13 - i));
+      const key = toDateKey(d);
       const label = i === 13 ? 'Auj.' : `J-${13 - i}`;
-      const fullDate = d.toLocaleDateString('fr-FR');
-      const match = (ventesParJour || []).find(v => v.jour === fullDate);
+      const match = (ventesParJour || []).find(v => v.jour === key);
       return { jour: label, quantite: match?.quantite ?? 0 };
     });
   }, [ventesParJour]);
@@ -561,14 +215,14 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
     v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)} M FCFA` : `${(v || 0).toLocaleString('fr-FR')} FCFA`;
 
   const kpis = [
-    { title: 'Produits en stock',  value: stats?.totalProduits ?? 0,                    icon: '📦', accentColor: `linear-gradient(90deg,${T.acc},${T.ind})`,  subText: '↑ +12 ce mois' },
-    { title: 'Stock bas',          value: stats?.produitsStockBas ?? 0,                  icon: '⚠️', accentColor: `linear-gradient(90deg,${T.amb},#fbbf24)`,  subText: '⚑ À réapprovisionner', subColor: T.amb },
-    { title: 'Valeur du stock',    value: fmtFCFA(stats?.valeurTotaleStock ?? 0),        icon: '💰', accentColor: `linear-gradient(90deg,${T.grn},#34d399)`,  subText: '↑ +8.4 % vs mois dernier' },
-    { title: 'CA du mois',         value: fmtFCFA(caMois),                               icon: '📈', accentColor: `linear-gradient(90deg,${T.rose},#fb7185)`, subText: '↑ +23 % vs mois dernier' },
+    { title: 'Produits en stock',  value: stats?.totalProduits ?? 0,             icon: '📦', accentColor: `linear-gradient(90deg,${T.acc},${T.ind})`,  subText: '↑ +12 ce mois' },
+    { title: 'Stock bas',          value: stats?.produitsStockBas ?? 0,           icon: '⚠️', accentColor: `linear-gradient(90deg,${T.amb},#fbbf24)`,  subText: '⚑ À réapprovisionner', subColor: T.amb },
+    { title: 'Valeur du stock',    value: fmtFCFA(stats?.valeurTotaleStock ?? 0), icon: '💰', accentColor: `linear-gradient(90deg,${T.grn},#34d399)`,  subText: '↑ +8.4 % vs mois dernier' },
+    { title: 'CA du mois',         value: fmtFCFA(caMois),                        icon: '📈', accentColor: `linear-gradient(90deg,${T.rose},#fb7185)`, subText: '↑ +23 % vs mois dernier' },
   ];
 
   return (
-    <div style={{ background: T.bg0, color: T.tx1, borderRadius: 20, padding: 24, fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ background: T.bg0, color: T.tx1, borderRadius: 20, padding: 24, fontFamily: "'Inter', system-ui, sans-serif", transition: 'background .3s, color .3s' }}>
       <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}`}</style>
 
       {/* Header */}
@@ -577,7 +231,7 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
           <h2 style={{ fontSize: 20, fontWeight: 500, color: T.tx1, letterSpacing: '-.3px', margin: 0 }}>Performance des ventes</h2>
           <p style={{ fontSize: 12, color: T.tx2, marginTop: 3, marginBottom: 0 }}>Tableau de bord analytique · Données en temps réel</p>
         </div>
-        <div style={{ background: '#1e3a5f', color: '#60a5fa', fontSize: 11, padding: '4px 12px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ background: T.badgeBg, color: T.badgeTx, fontSize: 11, padding: '4px 12px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 6, border: `1px solid ${T.badgeBorder}` }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.grn, animation: 'pulse 2s infinite', display: 'inline-block' }} />
           En direct
         </div>
@@ -585,13 +239,13 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
 
       {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 16 }}>
-        {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
+        {kpis.map((k, i) => <KpiCard key={i} {...k} T={T} />)}
       </div>
 
       {/* Area chart + Summary */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 16 }}>
-        <DCard>
-          <DCardHeader title="Évolution des ventes — 14 derniers jours" sub="Quantité journalière vendue" badge="Zone" />
+        <DCard T={T}>
+          <DCardHeader T={T} title="Évolution des ventes — 14 derniers jours" sub="Quantité journalière vendue" badge="Zone" />
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={chartData} margin={{ top: 6, right: 10, left: -20, bottom: 0 }}>
               <defs>
@@ -600,10 +254,10 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
                   <stop offset="95%" stopColor={T.acc} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={T.chartGrid} />
               <XAxis dataKey="jour" stroke={T.tx3} tick={{ fill: T.tx3, fontSize: 10 }} />
               <YAxis stroke={T.tx3} tick={{ fill: T.tx3, fontSize: 10 }} />
-              <Tooltip content={<DarkTooltip />} />
+              <Tooltip content={<DashTooltip T={T} />} />
               <Area type="monotone" dataKey="quantite" name="Ventes" stroke={T.acc} strokeWidth={2} fill="url(#gradBlue)"
                 dot={{ fill: T.acc, r: 3, strokeWidth: 2, stroke: T.bg1 }}
                 activeDot={{ r: 5, strokeWidth: 2, stroke: T.bg1 }} />
@@ -611,8 +265,8 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
           </ResponsiveContainer>
         </DCard>
 
-        <DCard>
-          <DCardHeader title="Récapitulatif" sub="Vue globale" />
+        <DCard T={T}>
+          <DCardHeader T={T} title="Récapitulatif" sub="Vue globale" />
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div style={{ background: T.bg3, borderRadius: 10, padding: 12 }}>
               <div style={{ fontSize: 18, fontWeight: 600, color: T.grn }}>{totalVentes.toLocaleString('fr-FR')}</div>
@@ -627,7 +281,7 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
               <div style={{ fontSize: 10, color: T.tx2, marginTop: 2 }}>Chiffre d'affaires total</div>
             </div>
           </div>
-          <div style={{ height: '0.5px', background: T.bg3, margin: '12px 0' }} />
+          <div style={{ height: '1px', background: T.bg4, margin: '12px 0' }} />
           <div style={{ display: 'flex', gap: 12 }}>
             {[{ label: 'Moy./jour', val: avgVentes, color: T.amb }, { label: 'Meilleur jour', val: maxVentes, color: T.grn }].map((m, i) => (
               <div key={i} style={{ flex: 1, textAlign: 'center' }}>
@@ -641,21 +295,21 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
 
       {/* Bar chart + Ranking */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <DCard>
-          <DCardHeader title="Top produits — nombre de ventes" sub="Classement par quantité" badge="Barres" />
+        <DCard T={T}>
+          <DCardHeader T={T} title="Top produits — nombre de ventes" sub="Classement par quantité" badge="Barres" />
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={topProduits.slice(0, 8).map((p, i) => ({ name: p.nom?.split(' ')[0] ?? `P${i+1}`, ventes: p.quantite }))} margin={{ top: 6, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <BarChart data={topProduits.slice(0, 8).map((p, i) => ({ name: p.nom?.split(' ')[0] ?? `P${i + 1}`, ventes: p.quantite }))} margin={{ top: 6, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={T.chartGrid} />
               <XAxis dataKey="name" stroke={T.tx3} tick={{ fill: T.tx3, fontSize: 10 }} />
               <YAxis stroke={T.tx3} tick={{ fill: T.tx3, fontSize: 10 }} />
-              <Tooltip content={<DarkTooltip />} />
+              <Tooltip content={<DashTooltip T={T} />} />
               <Bar dataKey="ventes" name="Ventes" fill={T.acc} radius={[6, 6, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </DCard>
 
-        <DCard>
-          <DCardHeader title="Classement produits" sub="Top 5 par volume" />
+        <DCard T={T}>
+          <DCardHeader T={T} title="Classement produits" sub="Top 5 par volume" />
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
@@ -669,14 +323,14 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
                 const pct = Math.round(p.quantite / (topProduits[0]?.quantite || 1) * 100);
                 return (
                   <tr key={i}>
-                    <td style={{ padding: '8px 0', borderTop: `0.5px solid ${T.bg3}` }}>
+                    <td style={{ padding: '8px 0', borderTop: `1px solid ${T.bg4}` }}>
                       <div style={{ width: 20, height: 20, borderRadius: 6, background: RANK_BG[i] ?? T.bg3, color: RANK_TX[i] ?? T.tx2, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{i + 1}</div>
                     </td>
-                    <td style={{ padding: '8px 8px', borderTop: `0.5px solid ${T.bg3}` }}>
+                    <td style={{ padding: '8px 8px', borderTop: `1px solid ${T.bg4}` }}>
                       <div style={{ fontSize: 12, color: T.tx1 }}>{p.nom}</div>
-                      <MiniBar pct={pct} color={RANK_TX[i] ?? T.acc} />
+                      <MiniBar T={T} pct={pct} color={RANK_TX[i] ?? T.acc} />
                     </td>
-                    <td style={{ textAlign: 'right', padding: '8px 0', borderTop: `0.5px solid ${T.bg3}`, fontSize: 13, fontWeight: 500, color: RANK_TX[i] ?? T.tx1 }}>{p.quantite}</td>
+                    <td style={{ textAlign: 'right', padding: '8px 0', borderTop: `1px solid ${T.bg4}`, fontSize: 13, fontWeight: 500, color: RANK_TX[i] ?? T.tx1 }}>{p.quantite}</td>
                   </tr>
                 );
               })}
@@ -758,10 +412,10 @@ function CartComponent({ produits, user, onSaleComplete }) {
       </div>
       <div style={styles.card}>
         <div style={styles.cardTitle}>🛒 Panier ({panier.length})</div>
-        {panier.length === 0 ? <div style={{ textAlign: 'center', padding: '60px', color: '#94a3b8' }}>Panier vide</div> : (
+        {panier.length === 0 ? <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Panier vide</div> : (
           <>
             {panier.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid #eef2f6' }}>
+              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <div><strong>{item.nom}</strong><br />{item.prixVente.toLocaleString()} FCFA</div>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <button onClick={() => modifierQuantite(item.id, item.quantite - 1, item.quantiteStock)} style={{ background: '#e2e8f0', border: 'none', width: '28px', height: '28px', borderRadius: '30px', fontWeight: 'bold' }}>-</button>
@@ -771,7 +425,7 @@ function CartComponent({ produits, user, onSaleComplete }) {
                 </div>
               </div>
             ))}
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid #eef2f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Total : {total.toLocaleString()} FCFA</span>
               <button style={styles.btnPrimary} onClick={validerVente} disabled={loading}>{loading ? 'Vente...' : '✅ Valider'}</button>
             </div>
@@ -791,53 +445,26 @@ function CashClosureComponent({ onCloture }) {
   const [loading, setLoading] = useState(false);
   const [statut, setStatut] = useState(null);
   const [historiqueClotures, setHistoriqueClotures] = useState([]);
-  const [showHistorique, setShowHistorique] = useState(false);
   const isVendeur = user?.role === 'VENDEUR';
   const canSeeHistorique = user?.role === 'ADMIN' || user?.role === 'STOCK_MANAGER';
 
-  // ===== PAGINATION =====
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const itemsPerPage = 20;
 
-  useEffect(() => { 
-    check(); 
-    if (canSeeHistorique) fetchHistorique(); 
-  }, [canSeeHistorique]);
+  useEffect(() => { check(); if (canSeeHistorique) fetchHistorique(); }, [canSeeHistorique]);
 
-  const check = async () => { 
-    try { 
-      const res = await axios.get('http://localhost:8080/api/produits/cloture/statut'); 
-      setStatut(res.data); 
-    } catch (e) { 
-      console.error(e); 
-    } 
-  };
-  
-  const fetchHistorique = async () => { 
-    try { 
-      const res = await axios.get('http://localhost:8080/api/produits/cloture/historique'); 
-      setHistoriqueClotures(res.data); 
-    } catch (e) { 
-      console.error(e); 
-    } 
-  };
+  const check = async () => { try { const res = await axios.get('http://localhost:8080/api/produits/cloture/statut'); setStatut(res.data); } catch (e) { console.error(e); } };
+  const fetchHistorique = async () => { try { const res = await axios.get('http://localhost:8080/api/produits/cloture/historique'); setHistoriqueClotures(res.data); } catch (e) { console.error(e); } };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!montantReel) { 
-      toast.error('Montant requis'); 
-      return; 
-    }
+    if (!montantReel) { toast.error('Montant requis'); return; }
     setLoading(true);
     try {
-      const res = await axios.post('http://localhost:8080/api/produits/cloture', { 
-        montantReel: parseFloat(montantReel), 
-        commentaire 
-      });
+      const res = await axios.post('http://localhost:8080/api/produits/cloture', { montantReel: parseFloat(montantReel), commentaire });
       toast.success(res.data.message);
       setMessage({ type: 'success', text: res.data.message });
-      setMontantReel(''); 
-      setCommentaire('');
+      setMontantReel(''); setCommentaire('');
       if (onCloture) onCloture();
       check();
       if (canSeeHistorique) fetchHistorique();
@@ -845,440 +472,58 @@ function CashClosureComponent({ onCloture }) {
       const errorText = err.response?.data?.error || 'Erreur';
       toast.error(errorText);
       setMessage({ type: 'error', text: errorText });
-    } finally { 
-      setLoading(false); 
-    }
+    } finally { setLoading(false); }
   };
 
-  // ===== CALCUL DE LA PAGINATION =====
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentClotures = historiqueClotures.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(historiqueClotures.length / itemsPerPage);
 
   useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
+    if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
   }, [historiqueClotures.length]);
 
   const getEcartBadge = (type) => {
-    if (type === 'MANQUANT') {
-      return { 
-        label: '⚠️ Manquant', 
-        bg: 'var(--bg-badge-danger)', 
-        color: 'var(--badge-danger)',
-        icon: '📉'
-      };
-    }
-    if (type === 'EXCEDENT') {
-      return { 
-        label: '📈 Excédent', 
-        bg: 'var(--bg-badge-warning)', 
-        color: 'var(--badge-warning)',
-        icon: '📈'
-      };
-    }
-    return { 
-      label: '✅ OK', 
-      bg: 'var(--bg-badge-success)', 
-      color: 'var(--badge-success)',
-      icon: '✅'
-    };
+    if (type === 'MANQUANT') return { label: 'Manquant', bg: 'var(--bg-badge-danger)', color: 'var(--badge-danger)', icon: '⚠️' };
+    if (type === 'EXCEDENT') return { label: 'Excédent', bg: 'var(--bg-badge-warning)', color: 'var(--badge-warning)', icon: '📈' };
+    return { label: 'OK', bg: 'var(--bg-badge-success)', color: 'var(--badge-success)', icon: '✅' };
   };
 
-  // ===== STYLES AVEC VARIABLES CSS =====
-  const styles = {
-    card: {
-      background: 'var(--bg-card)',
-      borderRadius: '20px',
-      padding: '24px',
-      boxShadow: 'var(--shadow)',
-      border: '1px solid var(--border-color)',
-      marginBottom: '24px',
-      transition: 'background 0.3s ease, border 0.3s ease'
-    },
-    cardTitle: {
-      fontSize: '18px',
-      fontWeight: '700',
-      color: 'var(--text-primary)',
-      marginBottom: '16px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      transition: 'color 0.3s ease'
-    },
-    infoBox: {
-      marginBottom: '20px',
-      padding: '16px 20px',
-      background: 'var(--bg-table-row-hover)',
-      borderRadius: '14px',
-      border: '1px solid var(--border-color)',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      flexWrap: 'wrap',
-      gap: '12px',
-      transition: 'background 0.3s ease, border 0.3s ease'
-    },
-    infoItem: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px'
-    },
-    infoLabel: {
-      fontSize: '13px',
-      color: 'var(--text-muted)'
-    },
-    infoValue: {
-      fontSize: '16px',
-      fontWeight: '700',
-      color: 'var(--text-primary)'
-    },
-    label: {
-      display: 'block',
-      fontSize: '13px',
-      fontWeight: '600',
-      marginBottom: '6px',
-      color: 'var(--text-secondary)',
-      transition: 'color 0.3s ease'
-    },
-    input: {
-      width: '100%',
-      padding: '10px 14px',
-      border: '1px solid var(--input-border)',
-      borderRadius: '12px',
-      fontSize: '14px',
-      outline: 'none',
-      transition: '0.2s',
-      background: 'var(--bg-input)',
-      color: 'var(--text-primary)'
-    },
-    inputLarge: {
-      fontSize: '18px',
-      fontWeight: '600',
-      padding: '12px 16px'
-    },
-    formGroup: {
-      marginBottom: '16px'
-    },
-    formRow: {
-      display: 'grid',
-      gridTemplateColumns: '1fr 1fr',
-      gap: '16px'
-    },
-    btnPrimary: {
-      padding: '10px 28px',
-      background: '#3b82f6',
-      color: 'white',
-      border: 'none',
-      borderRadius: '40px',
-      fontSize: '14px',
-      fontWeight: '600',
-      cursor: 'pointer',
-      transition: '0.2s',
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '8px'
-    },
-    btnPrimaryDisabled: {
-      opacity: 0.6,
-      cursor: 'not-allowed'
-    },
-    btnSecondary: {
-      padding: '10px 24px',
-      background: 'var(--bg-btn-secondary)',
-      color: 'var(--text-secondary)',
-      border: '1px solid var(--border-color)',
-      borderRadius: '40px',
-      fontSize: '14px',
-      fontWeight: '500',
-      cursor: 'pointer',
-      transition: '0.2s'
-    },
-    messageSuccess: {
-      padding: '12px 16px',
-      borderRadius: '12px',
-      marginBottom: '16px',
-      background: 'var(--bg-badge-success)',
-      color: 'var(--badge-success)',
-      border: '1px solid var(--border-color)',
-      fontSize: '14px'
-    },
-    messageError: {
-      padding: '12px 16px',
-      borderRadius: '12px',
-      marginBottom: '16px',
-      background: 'var(--bg-badge-danger)',
-      color: 'var(--badge-danger)',
-      border: '1px solid var(--border-color)',
-      fontSize: '14px'
-    },
-    formActions: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      marginTop: '8px'
-    },
-    // ===== CARTE DE CLÔTURE DÉJÀ EFFECTUÉE =====
-    alreadyClosed: {
-      textAlign: 'center',
-      padding: '30px 20px',
-      background: 'var(--bg-badge-success)',
-      borderRadius: '16px',
-      border: '1px solid var(--border-color)'
-    },
-    alreadyClosedIcon: {
-      fontSize: '48px',
-      marginBottom: '12px'
-    },
-    alreadyClosedText: {
-      fontSize: '16px',
-      fontWeight: '600',
-      color: 'var(--badge-success)'
-    },
-    alreadyClosedSub: {
-      fontSize: '14px',
-      color: 'var(--text-muted)',
-      marginTop: '4px'
-    },
-    closureDetail: {
-      background: 'var(--bg-card)',
-      padding: '16px 20px',
-      borderRadius: '14px',
-      marginTop: '16px',
-      border: '1px solid var(--border-color)',
-      display: 'inline-block',
-      textAlign: 'left'
-    },
-    closureDetailRow: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      gap: '30px',
-      padding: '4px 0',
-      fontSize: '14px',
-      color: 'var(--text-primary)'
-    },
-    // ===== HISTORIQUE =====
-    historyButton: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '8px',
-      color: 'var(--text-primary)',
-      fontWeight: '500',
-      marginBottom: '16px',
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      fontSize: '14px',
-      transition: '0.2s',
-      padding: '8px 16px',
-      borderRadius: '40px',
-      background: 'var(--bg-table-row-hover)',
-      border: '1px solid var(--border-color)'
-    },
-    historyBadge: {
-      fontSize: '12px',
-      background: 'var(--bg-btn-secondary)',
-      padding: '2px 10px',
-      borderRadius: '20px',
-      color: 'var(--text-muted)'
-    },
-    historyCard: {
-      background: 'var(--bg-card)',
-      borderRadius: '16px',
-      boxShadow: 'var(--shadow)',
-      border: '1px solid var(--border-color)',
-      overflow: 'hidden',
-      transition: 'background 0.3s ease, border 0.3s ease'
-    },
-    // ===== TABLEAU MODERNISÉ =====
-    tableContainer: {
-      overflowX: 'auto',
-      padding: '0 4px'
-    },
-    table: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      fontSize: '14px'
-    },
-    th: {
-      textAlign: 'left',
-      padding: '12px 16px',
-      background: 'var(--bg-table-header)',
-      fontSize: '11px',
-      fontWeight: '600',
-      color: 'var(--text-muted)',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
-      borderBottom: '2px solid var(--border-color)',
-      transition: 'background 0.3s ease, color 0.3s ease'
-    },
-    td: {
-      padding: '12px 16px',
-      borderBottom: '1px solid var(--border-color)',
-      color: 'var(--text-primary)',
-      transition: 'color 0.3s ease, border 0.3s ease'
-    },
-    tr: {
-      transition: 'background 0.2s ease'
-    },
-    trHover: {
-      background: 'var(--bg-table-row-hover)'
-    },
-    badge: {
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '6px',
-      padding: '4px 14px',
-      borderRadius: '20px',
-      fontSize: '12px',
-      fontWeight: '500'
-    },
-    emptyState: {
-      textAlign: 'center',
-      padding: '40px',
-      color: 'var(--text-muted)'
-    },
-    // ===== PAGINATION =====
-    pagination: {
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: '12px',
-      padding: '16px 20px',
-      borderTop: '1px solid var(--border-color)'
-    },
-    paginationBtn: {
-      padding: '6px 16px',
-      borderRadius: '30px',
-      border: '1px solid var(--border-color)',
-      background: 'var(--bg-table-header)',
-      color: 'var(--text-secondary)',
-      cursor: 'pointer',
-      fontWeight: '500',
-      fontSize: '13px',
-      transition: '0.2s'
-    },
-    paginationBtnDisabled: {
-      opacity: 0.4,
-      cursor: 'not-allowed'
-    },
-    paginationText: {
-      fontSize: '13px',
-      color: 'var(--text-muted)',
-      fontWeight: '500'
-    }
-  };
-
-  // ===== SI L'UTILISATEUR N'EST PAS VENDEUR : HISTORIQUE =====
   if (!isVendeur && canSeeHistorique) {
     return (
       <div style={styles.card}>
-        <div style={styles.cardTitle}>
-          <span>📊</span> Historique des clôtures de caisse
-        </div>
-        
+        <div style={styles.cardTitle}><span>📊</span> Historique des clôtures de caisse</div>
         {historiqueClotures.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p>Aucune clôture enregistrée</p>
-          </div>
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune clôture enregistrée</div>
         ) : (
           <>
-            <div style={styles.tableContainer}>
+            <div style={{ overflowX: 'auto' }}>
               <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>📅 Date</th>
-                    <th style={styles.th}>💰 Montant théorique</th>
-                    <th style={styles.th}>💵 Montant réel</th>
-                    <th style={styles.th}>📊 Écart</th>
-                    <th style={styles.th}>✅ Type</th>
-                    <th style={styles.th}>👤 Caissier</th>
-                    <th style={styles.th}>💬 Commentaire</th>
-                  </tr>
-                </thead>
+                <thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Théorique</th><th style={styles.th}>Réel</th><th style={styles.th}>Écart</th><th style={styles.th}>Type</th><th style={styles.th}>Caissier</th><th style={styles.th}>Commentaire</th></tr></thead>
                 <tbody>
-                  {currentClotures.map((c, index) => {
+                  {currentClotures.map(c => {
                     const badge = getEcartBadge(c.typeEcart);
                     return (
-                      <tr 
-                        key={c.id} 
-                        style={styles.tr}
-                        onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-table-row-hover)'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <td style={styles.td}>
-                          {new Date(c.date).toLocaleDateString('fr-FR', { 
-                            day: '2-digit', 
-                            month: '2-digit', 
-                            year: 'numeric' 
-                          })}
-                        </td>
-                        <td style={styles.td}>
-                          <strong>{c.montantTheorique?.toLocaleString()} FCFA</strong>
-                        </td>
-                        <td style={styles.td}>
-                          <strong>{c.montantReel?.toLocaleString()} FCFA</strong>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{ 
-                            fontWeight: '600',
-                            color: c.typeEcart === 'MANQUANT' ? 'var(--badge-danger)' : 
-                                   c.typeEcart === 'EXCEDENT' ? 'var(--badge-warning)' : 
-                                   'var(--badge-success)'
-                          }}>
-                            {c.ecart?.toLocaleString()} FCFA
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{ 
-                            ...styles.badge,
-                            background: badge.bg,
-                            color: badge.color
-                          }}>
-                            {badge.icon} {badge.label}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{ fontWeight: '500' }}>{c.caissier}</span>
-                        </td>
-                        <td style={{ ...styles.td, color: 'var(--text-muted)' }}>
-                          {c.commentaire || '-'}
-                        </td>
+                      <tr key={c.id}>
+                        <td style={styles.td}>{new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
+                        <td style={styles.td}><strong>{c.montantTheorique?.toLocaleString()} FCFA</strong></td>
+                        <td style={styles.td}><strong>{c.montantReel?.toLocaleString()} FCFA</strong></td>
+                        <td style={styles.td}>{c.ecart?.toLocaleString()} FCFA</td>
+                        <td style={styles.td}><span style={{ ...styles.badge, background: badge.bg, color: badge.color }}>{badge.icon} {badge.label}</span></td>
+                        <td style={styles.td}>{c.caissier}</td>
+                        <td style={styles.td}>{c.commentaire || '-'}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-
-            {/* ===== PAGINATION ===== */}
             {totalPages > 1 && (
-              <div style={styles.pagination}>
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  style={{
-                    ...styles.paginationBtn,
-                    ...(currentPage === 1 ? styles.paginationBtnDisabled : {})
-                  }}
-                >
-                  ◀ Précédent
-                </button>
-                <span style={styles.paginationText}>
-                  Page {currentPage} / {totalPages}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  style={{
-                    ...styles.paginationBtn,
-                    ...(currentPage === totalPages ? styles.paginationBtnDisabled : {})
-                  }}
-                >
-                  Suivant ▶
-                </button>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ ...styles.btnSecondary, opacity: currentPage === 1 ? 0.5 : 1 }}>◀ Précédent</button>
+                <span style={{ alignSelf: 'center', fontSize: '13px', color: 'var(--text-muted)' }}>Page {currentPage} / {totalPages}</span>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ ...styles.btnSecondary, opacity: currentPage === totalPages ? 0.5 : 1 }}>Suivant ▶</button>
               </div>
             )}
           </>
@@ -1287,38 +532,18 @@ function CashClosureComponent({ onCloture }) {
     );
   }
 
-  // ===== SI DÉJÀ CLÔTURÉ =====
   if (statut?.estCloturee) {
     return (
       <div style={styles.card}>
         <div style={styles.cardTitle}>✅ Clôture déjà effectuée</div>
-        <div style={styles.alreadyClosed}>
-          <div style={styles.alreadyClosedIcon}>🔒</div>
-          <p style={styles.alreadyClosedText}>La caisse a déjà été clôturée pour aujourd'hui</p>
-          <p style={styles.alreadyClosedSub}>Prochaine clôture disponible demain</p>
+        <div style={{ textAlign: 'center', padding: '30px 20px', background: 'var(--bg-badge-success)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '48px', marginBottom: 12 }}>🔒</div>
+          <p style={{ fontWeight: 600, color: 'var(--badge-success)' }}>Caisse déjà clôturée aujourd'hui</p>
           {statut.cloture && (
-            <div style={styles.closureDetail}>
-              <div style={styles.closureDetailRow}>
-                <span>Montant théorique</span>
-                <strong>{statut.cloture.montantTheorique?.toLocaleString()} FCFA</strong>
-              </div>
-              <div style={styles.closureDetailRow}>
-                <span>Montant réel</span>
-                <strong>{statut.cloture.montantReel?.toLocaleString()} FCFA</strong>
-              </div>
-              <div style={{ 
-                ...styles.closureDetailRow,
-                borderTop: '1px solid var(--border-color)',
-                paddingTop: '8px',
-                marginTop: '4px'
-              }}>
-                <span>Écart</span>
-                <strong style={{ 
-                  color: statut.cloture.typeEcart === 'MANQUANT' ? '#dc2626' : '#059669'
-                }}>
-                  {statut.cloture.ecart?.toLocaleString()} FCFA
-                </strong>
-              </div>
+            <div style={{ background: 'var(--bg-card)', padding: '16px 20px', borderRadius: '14px', marginTop: '16px', border: '1px solid var(--border-color)', display: 'inline-block', textAlign: 'left' }}>
+              <p style={{ color: 'var(--text-primary)' }}>Montant théorique : <strong>{statut.cloture.montantTheorique?.toLocaleString()} FCFA</strong></p>
+              <p style={{ color: 'var(--text-primary)' }}>Montant réel : <strong>{statut.cloture.montantReel?.toLocaleString()} FCFA</strong></p>
+              <p style={{ color: 'var(--text-primary)' }}>Écart : <strong style={{ color: statut.cloture.typeEcart === 'MANQUANT' ? '#dc2626' : '#3b82f6' }}>{statut.cloture.ecart?.toLocaleString()} FCFA</strong></p>
             </div>
           )}
         </div>
@@ -1326,86 +551,25 @@ function CashClosureComponent({ onCloture }) {
     );
   }
 
-  // ===== FORMULAIRE DE CLÔTURE (VENDEUR) =====
   return (
     <div style={styles.card}>
-      <div style={styles.cardTitle}>
-        <span>🔒</span> Clôture de caisse
-      </div>
-      
-      {message && (
-        <div style={message.type === 'success' ? styles.messageSuccess : styles.messageError}>
-          {message.text}
-        </div>
-      )}
-      
-      {/* ===== INFO BOX ===== */}
+      <div style={styles.cardTitle}>🔒 Clôture de caisse</div>
+      {message && <div style={{ padding: '12px', borderRadius: '14px', marginBottom: '16px', background: message.type === 'success' ? 'var(--bg-badge-success)' : 'var(--bg-badge-danger)', color: message.type === 'success' ? 'var(--badge-success)' : 'var(--badge-danger)' }}>{message.text}</div>}
       {statut && (
-        <div style={styles.infoBox}>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>💰 Montant théorique</span>
-            <span style={styles.infoValue}>{statut.montantTheorique?.toLocaleString()} FCFA</span>
-          </div>
-          <div style={styles.infoItem}>
-            <span style={styles.infoLabel}>📦 Ventes du jour</span>
-            <span style={styles.infoValue}>{statut.nombreVentes || 0}</span>
-          </div>
+        <div style={{ marginBottom: '20px', padding: '14px', background: 'var(--bg-table-row-hover)', borderRadius: '18px', border: '1px solid var(--border-color)' }}>
+          <p style={{ color: 'var(--text-primary)' }}>Montant théorique : <strong>{statut.montantTheorique?.toLocaleString()} FCFA</strong></p>
+          <p style={{ color: 'var(--text-primary)' }}>Ventes du jour : <strong>{statut.nombreVentes || 0}</strong></p>
         </div>
       )}
-      
       <form onSubmit={handleSubmit}>
-        <div style={styles.formRow}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>💵 Montant réel en caisse *</label>
-            <input 
-              type="number" 
-              step="100"
-              style={{ ...styles.input, ...styles.inputLarge }} 
-              value={montantReel} 
-              onChange={e => setMontantReel(e.target.value)} 
-              required 
-              placeholder="0 FCFA"
-            />
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>💬 Commentaire (optionnel)</label>
-            <input 
-              type="text" 
-              style={styles.input} 
-              value={commentaire} 
-              onChange={e => setCommentaire(e.target.value)} 
-              placeholder="Ex: Manque de monnaie..." 
-            />
-          </div>
-        </div>
-        
-        <div style={styles.formActions}>
-          <button 
-            type="submit" 
-            style={{
-              ...styles.btnPrimary,
-              ...(loading ? styles.btnPrimaryDisabled : {})
-            }}
-            disabled={loading}
-            onMouseEnter={(e) => {
-              if (!loading) e.currentTarget.style.background = '#2563eb';
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) e.currentTarget.style.background = '#3b82f6';
-            }}
-          >
-            {loading ? '⏳ Traitement...' : '🔒 Valider la clôture'}
-          </button>
-          {loading && (
-            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-              Veuillez patienter...
-            </span>
-          )}
-        </div>
+        <div style={styles.formGroup}><label style={styles.label}>Montant réel en caisse (FCFA)</label><input type="number" style={styles.input} value={montantReel} onChange={e => setMontantReel(e.target.value)} required /></div>
+        <div style={styles.formGroup}><label style={styles.label}>Commentaire (optionnel)</label><input type="text" style={styles.input} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder="Ex: Manque de monnaie" /></div>
+        <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Clôture...' : '🔒 Valider la clôture'}</button>
       </form>
     </div>
   );
 }
+
 // ==================== GESTION UTILISATEURS ====================
 function UserManagementComponent() {
   const [users, setUsers] = useState([]);
@@ -1466,10 +630,10 @@ function UserManagementComponent() {
 
   const UserForm = ({ onSubmit, submitLabel }) => (
     <form onSubmit={onSubmit}>
-      <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })} required /></div>
-      <div style={styles.formGroup}><label>Email</label><input type="email" style={styles.input} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required /></div>
-      <div style={styles.formGroup}><label>Mot de passe{submitLabel === 'Enregistrer' ? ' (laisser vide pour ne pas changer)' : ''}</label><input type="password" style={styles.input} value={formData.motDePasse} onChange={e => setFormData({ ...formData, motDePasse: e.target.value })} required={submitLabel !== 'Enregistrer'} /></div>
-      <div style={styles.formGroup}><label>Rôle</label><select style={styles.input} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}><option value="VENDEUR">Vendeur</option><option value="STOCK_MANAGER">Gestionnaire</option><option value="ADMIN">Administrateur</option></select></div>
+      <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })} required /></div>
+      <div style={styles.formGroup}><label style={styles.label}>Email</label><input type="email" style={styles.input} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required /></div>
+      <div style={styles.formGroup}><label style={styles.label}>Mot de passe{submitLabel === 'Enregistrer' ? ' (laisser vide pour ne pas changer)' : ''}</label><input type="password" style={styles.input} value={formData.motDePasse} onChange={e => setFormData({ ...formData, motDePasse: e.target.value })} required={submitLabel !== 'Enregistrer'} /></div>
+      <div style={styles.formGroup}><label style={styles.label}>Rôle</label><select style={styles.input} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}><option value="VENDEUR">Vendeur</option><option value="STOCK_MANAGER">Gestionnaire</option><option value="ADMIN">Administrateur</option></select></div>
       <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>{submitLabel}</button><button type="button" onClick={() => { setShowModal(false); setShowEditModal(false); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
     </form>
   );
@@ -1492,8 +656,8 @@ function UserManagementComponent() {
           ); })}
         </tbody>
       </table>
-      {showModal && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3>Nouvel utilisateur</h3><button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleCreate} submitLabel="Créer" /></div></div>)}
-      {showEditModal && editingUser && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3>Modifier l'utilisateur</h3><button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleUpdate} submitLabel="Enregistrer" /></div></div>)}
+      {showModal && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>Nouvel utilisateur</h3><button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleCreate} submitLabel="Créer" /></div></div>)}
+      {showEditModal && editingUser && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>Modifier l'utilisateur</h3><button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleUpdate} submitLabel="Enregistrer" /></div></div>)}
     </div>
   );
 }
@@ -1571,18 +735,29 @@ function StockManagement() {
 
   const fetchStats = async () => { try { const res = await axios.get('http://localhost:8080/api/produits/dashboard/stats'); setStats(res.data); } catch (e) { console.error(e); } };
 
+  // ── fetchVentes corrigé : clés YYYY-MM-DD + tri chronologique avant slice ──
   const fetchVentes = async () => {
     try {
       const res = await axios.get('http://localhost:8080/api/produits/ventes');
       setVentes(res.data);
       setTotalVentes(res.data.length);
       setChiffreAffaire(res.data.reduce((s, v) => s + (v.montantTotal || 0), 0));
+
+      // Regroupement par jour avec clé stable
       const jourMap = new Map();
-      res.data.forEach(v => { const jour = new Date(v.dateVente).toLocaleDateString('fr-FR'); jourMap.set(jour, (jourMap.get(jour) || 0) + v.quantite); });
-      setVentesParJour(Array.from(jourMap.entries()).map(([jour, quantite]) => ({ jour, quantite })).slice(-30));
+      res.data.forEach(v => {
+        const key = toDateKey(v.dateVente);
+        jourMap.set(key, (jourMap.get(key) || 0) + v.quantite);
+      });
+      // Tri chronologique explicite AVANT de garder les 30 derniers jours
+      const sortedDays = Array.from(jourMap.entries())
+        .map(([jour, quantite]) => ({ jour, quantite }))
+        .sort((a, b) => a.jour.localeCompare(b.jour)); // "YYYY-MM-DD" se trie correctement en texte
+      setVentesParJour(sortedDays.slice(-30));
+
       const prodMap = new Map();
       res.data.forEach(v => { const nom = v.produit?.nom || 'Inconnu'; prodMap.set(nom, (prodMap.get(nom) || 0) + v.quantite); });
-      setTopProduits(Array.from(prodMap.entries()).map(([nom, quantite]) => ({ nom, quantite })).sort((a, b) => b.quantite - a.quantite).slice(0, 5));
+      setTopProduits(Array.from(prodMap.entries()).map(([nom, quantite]) => ({ nom, quantite })).sort((a, b) => b.quantite - a.quantite).slice(0, 8));
     } catch (e) { console.error(e); }
   };
 
@@ -1659,10 +834,11 @@ function StockManagement() {
   const totalPages = Math.ceil(filteredProduits.length / itemsPerPage);
   const paginatedProduits = filteredProduits.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
+  // ── getVentesFiltrees corrigé : comparaison via clé YYYY-MM-DD plutôt que Date >= / <= ──
   const getVentesFiltrees = () => {
     let filtered = ventes;
-    if (filtreDateDebut) { const debut = new Date(filtreDateDebut); debut.setHours(0, 0, 0); filtered = filtered.filter(v => new Date(v.dateVente) >= debut); }
-    if (filtreDateFin) { const fin = new Date(filtreDateFin); fin.setHours(23, 59, 59); filtered = filtered.filter(v => new Date(v.dateVente) <= fin); }
+    if (filtreDateDebut) filtered = filtered.filter(v => toDateKey(v.dateVente) >= filtreDateDebut);
+    if (filtreDateFin) filtered = filtered.filter(v => toDateKey(v.dateVente) <= filtreDateFin);
     if (filtreVendeur) filtered = filtered.filter(v => v.vendeur === filtreVendeur);
     if (filtreProduit) filtered = filtered.filter(v => v.produit?.nom === filtreProduit);
     return filtered;
@@ -1686,12 +862,11 @@ function StockManagement() {
       if (!groups.has(key)) groups.set(key, { ventes: [], factureId: v.factureId, date: v.dateVente, vendeur: v.vendeur });
       groups.get(key).ventes.push(v);
     });
-    return Array.from(groups.values()).map(group => ({ ...group, total: group.ventes.reduce((sum, v) => sum + (v.prixUnitaire * v.quantite), 0) }));
+    // tri du plus récent au plus ancien pour un affichage cohérent dans l'historique
+    return Array.from(groups.values())
+      .map(group => ({ ...group, total: group.ventes.reduce((sum, v) => sum + (v.prixUnitaire * v.quantite), 0) }))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
   })();
-
-  // ── Sections du dashboard (main content) ──────────────────────────────────
-  // On enveloppe le dashboard dark dans un fond sombre uniquement pour la section dashboard
-  const mainBg = activeSection === 'dashboard' ? T.bg0 : undefined;
 
   return (
     <div style={styles.container}>
@@ -1703,40 +878,15 @@ function StockManagement() {
         <div style={styles.sidebarHeader}>
           <div style={styles.sidebarLogoContainer}><img src={logo} alt="Powertech" style={styles.sidebarLogo} /></div>
         </div>
+
         {/* ===== BOUTON THEME ===== */}
-        <div style={{ 
-          margin: '0 16px 16px 16px',
-          padding: '12px 16px',
-          background: '#334155',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer'
-        }} onClick={toggleTheme}>
-          <span style={{ color: '#cbd5e1', fontSize: '13px' }}>
-            {theme === 'light' ? '☀️ Mode clair' : '🌙 Mode sombre'}
-          </span>
-          <div style={{
-            width: '44px',
-            height: '24px',
-            background: theme === 'dark' ? '#3b82f6' : '#64748b',
-            borderRadius: '12px',
-            position: 'relative',
-            transition: '0.3s'
-          }}>
-            <div style={{
-              width: '18px',
-              height: '18px',
-              background: 'white',
-              borderRadius: '50%',
-              position: 'absolute',
-              top: '3px',
-              left: theme === 'dark' ? '23px' : '3px',
-              transition: '0.3s'
-            }} />
+        <div style={{ margin: '0 16px 16px 16px', padding: '12px 16px', background: 'var(--bg-user-card)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={toggleTheme}>
+          <span style={{ color: '#cbd5e1', fontSize: '13px' }}>{theme === 'light' ? '☀️ Mode clair' : '🌙 Mode sombre'}</span>
+          <div style={{ width: '44px', height: '24px', background: theme === 'dark' ? '#3b82f6' : '#64748b', borderRadius: '12px', position: 'relative', transition: '0.3s' }}>
+            <div style={{ width: '18px', height: '18px', background: 'white', borderRadius: '50%', position: 'absolute', top: '3px', left: theme === 'dark' ? '23px' : '3px', transition: '0.3s' }} />
           </div>
         </div>
+
         <div style={styles.userCard}>
           <div style={styles.userName}>{user?.nom}</div>
           <div style={styles.userRole}>{getRoleLabel()}</div>
@@ -1750,74 +900,30 @@ function StockManagement() {
       </div>
 
       {/* ===== MAIN ===== */}
-      <div style={{ ...styles.main, background: mainBg, minHeight: '100vh', transition: 'background .3s' }}>
-{/* Header */}
-<div style={{ 
-  ...styles.header, 
-  ...(activeSection === 'dashboard' ? { background: T.bg1, border: `0.5px solid ${T.bg4}`, color: T.tx1 } : {}) 
-}}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-    
-    {/* ===== LOGO AVEC CONTAINER BLANC ===== */}
-    <div style={{ 
-      backgroundColor: 'white', 
-      borderRadius: '12px', 
-      padding: '6px 16px',
-      display: 'flex', 
-      alignItems: 'center',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-      border: '1px solid #e2e8f0'
-    }}>
-      <img 
-        src={logo} 
-        alt="Powertech" 
-        style={{ 
-          height: '40px', 
-          width: 'auto', 
-          display: 'block'
-        }} 
-      />
-    </div>
-
-    {/* Séparateur */}
-    <div style={{ 
-      height: '30px', 
-      width: '1px', 
-      background: activeSection === 'dashboard' ? '#2d3347' : '#e2e8f0' 
-    }} />
-
-    {/* Titre de la section */}
-    <div>
-      <div style={{ 
-        ...styles.headerTitle, 
-        ...(activeSection === 'dashboard' ? { color: T.tx1 } : {}),
-        fontSize: '18px'
-      }}>
-        {activeSection === 'dashboard' && 'Tableau de bord'}
-        {activeSection === 'stocks' && 'Gestion des stocks'}
-        {activeSection === 'historique' && 'Historique des ventes'}
-        {activeSection === 'panier' && 'Vente'}
-        {activeSection === 'cloture' && 'Clôture de caisse'}
-        {activeSection === 'utilisateurs' && 'Utilisateurs'}
-        {activeSection === 'fournisseurs' && 'Gestion des fournisseurs'}
-        {activeSection === 'commandes' && 'Commandes fournisseurs'}
-      </div>
-      <div style={{ 
-        ...styles.headerSubtitle, 
-        ...(activeSection === 'dashboard' ? { color: T.tx2 } : {}) 
-      }}>
-        {getRoleLabel()} – Dakar, Sénégal
-      </div>
-    </div>
-  </div>
-  
-  <div style={{ 
-    ...styles.headerPhone, 
-    ...(activeSection === 'dashboard' ? { background: T.bg3, color: T.tx1 } : {}) 
-  }}>
-    📞 (+221) 766432045
-  </div>
-</div>
+      <div style={styles.main}>
+        {/* Header */}
+        <div style={styles.header}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '6px 16px', display: 'flex', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+              <img src={logo} alt="Powertech" style={{ height: '40px', width: 'auto', display: 'block' }} />
+            </div>
+            <div style={{ height: '30px', width: '1px', background: 'var(--border-color)' }} />
+            <div>
+              <div style={{ ...styles.headerTitle, fontSize: '18px' }}>
+                {activeSection === 'dashboard' && 'Tableau de bord'}
+                {activeSection === 'stocks' && 'Gestion des stocks'}
+                {activeSection === 'historique' && 'Historique des ventes'}
+                {activeSection === 'panier' && 'Vente'}
+                {activeSection === 'cloture' && 'Clôture de caisse'}
+                {activeSection === 'utilisateurs' && 'Utilisateurs'}
+                {activeSection === 'fournisseurs' && 'Gestion des fournisseurs'}
+                {activeSection === 'commandes' && 'Commandes fournisseurs'}
+              </div>
+              <div style={styles.headerSubtitle}>{getRoleLabel()} – Dakar, Sénégal</div>
+            </div>
+          </div>
+          <div style={styles.headerPhone}>📞 (+221) 766432045</div>
+        </div>
 
         {/* ===== SECTIONS ===== */}
         {activeSection === 'dashboard' && (
@@ -1837,7 +943,7 @@ function StockManagement() {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                    <tr style={{ background: 'var(--bg-table-header)', borderBottom: '2px solid var(--border-color)' }}>
                       {['Référence', 'Nom', 'Prix (FCFA)', 'Stock', 'Fournisseur', 'Actions'].map((h, i) => <th key={i} style={{ ...styles.th, padding: '14px 12px', textAlign: i === 5 ? 'center' : 'left' }}>{h}</th>)}
                     </tr>
                   </thead>
@@ -1845,11 +951,11 @@ function StockManagement() {
                     {paginatedProduits.map(p => {
                       const isLowStock = p.quantiteStock <= (p.seuilAlerte || 5);
                       const isRupture = p.quantiteStock === 0;
-                      let stockBadgeStyle = { ...styles.badge, background: '#dcfce7', color: '#166534' };
-                      if (isRupture) stockBadgeStyle = { ...styles.badge, background: '#fee2e2', color: '#991b1b' };
-                      else if (isLowStock) stockBadgeStyle = { ...styles.badge, background: '#fef3c7', color: '#92400e' };
+                      let stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-success)', color: 'var(--badge-success)' };
+                      if (isRupture) stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-danger)', color: 'var(--badge-danger)' };
+                      else if (isLowStock) stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-warning)', color: 'var(--badge-warning)' };
                       return (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fafaf9'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-table-row-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                           <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: '500' }}>{p.reference}</td>
                           <td style={{ ...styles.td, fontWeight: '600' }}>{p.nom}</td>
                           <td style={styles.td}>{p.prixVente?.toLocaleString()} FCFA</td>
@@ -1862,57 +968,55 @@ function StockManagement() {
                         </tr>
                       );
                     })}
-                    {paginatedProduits.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>Aucun produit trouvé</td></tr>}
+                    {paginatedProduits.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucun produit trouvé</td></tr>}
                   </tbody>
                 </table>
               </div>
               {totalPages > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', paddingTop: '8px', borderTop: '1px solid #eef2f6' }}>
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '6px 14px', borderRadius: '30px', background: '#e2e8f0', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === 1 ? 0.5 : 1 }}>◀ Précédent</button>
-                  <span style={{ padding: '6px 12px', background: '#f1f5f9', borderRadius: '30px', fontSize: '14px', fontWeight: '500' }}>Page {currentPage} / {totalPages}</span>
-                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '6px 14px', borderRadius: '30px', background: '#e2e8f0', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === totalPages ? 0.5 : 1 }}>Suivant ▶</button>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '6px 14px', borderRadius: '30px', background: 'var(--bg-btn-secondary)', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === 1 ? 0.5 : 1, color: 'var(--text-secondary)' }}>◀ Précédent</button>
+                  <span style={{ padding: '6px 12px', background: 'var(--bg-table-header)', borderRadius: '30px', fontSize: '14px', fontWeight: '500', color: 'var(--text-primary)' }}>Page {currentPage} / {totalPages}</span>
+                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '6px 14px', borderRadius: '30px', background: 'var(--bg-btn-secondary)', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === totalPages ? 0.5 : 1, color: 'var(--text-secondary)' }}>Suivant ▶</button>
                 </div>
               )}
             </div>
 
-            {/* Modal stock */}
             {showStockModal && (
               <div style={styles.modal}><div style={{ ...styles.modalContent, maxWidth: '580px' }}>
-                <div style={styles.flexBetween}><h3>📦 Gestion des stocks</h3><button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
-                <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid #e2e8f0', marginBottom: '24px' }}>
-                  <button onClick={() => setStockTab('add')} style={{ padding: '10px 18px', background: stockTab === 'add' ? '#3b82f6' : 'transparent', color: stockTab === 'add' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>➕ Ajouter</button>
-                  <button onClick={() => setStockTab('restock')} style={{ padding: '10px 18px', background: stockTab === 'restock' ? '#3b82f6' : 'transparent', color: stockTab === 'restock' ? 'white' : '#475569', border: 'none', borderRadius: '40px', fontWeight: '600' }}>📥 Réapprovisionner</button>
+                <div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>📦 Gestion des stocks</h3><button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
+                <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+                  <button onClick={() => setStockTab('add')} style={{ padding: '10px 18px', background: stockTab === 'add' ? '#3b82f6' : 'transparent', color: stockTab === 'add' ? 'white' : 'var(--text-secondary)', border: 'none', borderRadius: '40px', fontWeight: '600' }}>➕ Ajouter</button>
+                  <button onClick={() => setStockTab('restock')} style={{ padding: '10px 18px', background: stockTab === 'restock' ? '#3b82f6' : 'transparent', color: stockTab === 'restock' ? 'white' : 'var(--text-secondary)', border: 'none', borderRadius: '40px', fontWeight: '600' }}>📥 Réapprovisionner</button>
                 </div>
                 {stockTab === 'add' && (
                   <form onSubmit={addProduct}>
-                    <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({ ...newProduct, reference: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({ ...newProduct, nom: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({ ...newProduct, prixVente: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label>Quantité initiale</label><input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({ ...newProduct, quantiteStock: e.target.value })} required /></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Référence</label><input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({ ...newProduct, reference: e.target.value })} required /></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({ ...newProduct, nom: e.target.value })} required /></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Prix (FCFA)</label><input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({ ...newProduct, prixVente: e.target.value })} required /></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Quantité initiale</label><input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({ ...newProduct, quantiteStock: e.target.value })} required /></div>
                     <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={newProduct.fournisseurId || ''} onChange={e => setNewProduct({ ...newProduct, fournisseurId: e.target.value })}><option value="">-- Aucun --</option>{fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}</select></div>
                     <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Ajouter</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
                   </form>
                 )}
                 {stockTab === 'restock' && (
                   <form onSubmit={handleRestock}>
-                    <div style={styles.formGroup}><label>Produit</label><select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required><option value="">-- Sélectionner --</option>{produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}</select></div>
-                    <div style={styles.formGroup}><label>Quantité</label><input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required /></div>
-                    <div style={styles.formGroup}><label>Fournisseur</label><select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}><option value="">-- Sélectionner un fournisseur --</option>{fournisseurs.map(f => <option key={f.id} value={f.nom}>{f.nom}</option>)}</select></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Produit</label><select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required><option value="">-- Sélectionner --</option>{produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}</select></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Quantité</label><input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required /></div>
+                    <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}><option value="">-- Sélectionner un fournisseur --</option>{fournisseurs.map(f => <option key={f.id} value={f.nom}>{f.nom}</option>)}</select></div>
                     <div style={styles.gap2}><button type="submit" style={styles.btnPrimary} disabled={restockLoading}>{restockLoading ? 'Traitement...' : 'Réapprovisionner'}</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
                   </form>
                 )}
               </div></div>
             )}
 
-            {/* Modal edit produit */}
             {showEditModal && produitEdit && (
               <div style={styles.modal}><div style={{ ...styles.modalContent, maxWidth: '500px' }}>
-                <div style={styles.flexBetween}><h3>✏️ Modifier le produit</h3><button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
+                <div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le produit</h3><button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
                 <form onSubmit={handleUpdateProduct}>
-                  <div style={styles.formGroup}><label>Référence</label><input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({ ...produitEdit, reference: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label>Nom</label><input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({ ...produitEdit, nom: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label>Prix (FCFA)</label><input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({ ...produitEdit, prixVente: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label>Seuil alerte</label><input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({ ...produitEdit, seuilAlerte: e.target.value })} /></div>
+                  <div style={styles.formGroup}><label style={styles.label}>Référence</label><input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({ ...produitEdit, reference: e.target.value })} required /></div>
+                  <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({ ...produitEdit, nom: e.target.value })} required /></div>
+                  <div style={styles.formGroup}><label style={styles.label}>Prix (FCFA)</label><input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({ ...produitEdit, prixVente: e.target.value })} required /></div>
+                  <div style={styles.formGroup}><label style={styles.label}>Seuil alerte</label><input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({ ...produitEdit, seuilAlerte: e.target.value })} /></div>
                   <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={produitEdit.fournisseur?.id || ''} onChange={e => setProduitEdit({ ...produitEdit, fournisseur: e.target.value ? { id: parseInt(e.target.value) } : null })}><option value="">-- Aucun --</option>{fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}</select></div>
                   <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Enregistrer</button><button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
                 </form>
@@ -1923,193 +1027,72 @@ function StockManagement() {
           </div>
         )}
 
-   
-{activeSection === 'historique' && (
-  <div style={styles.card}>
-    <div style={styles.cardTitle}>📜 Historique des ventes</div>
-    
-    {/* Filtres */}
-    <div style={{ 
-      display: 'flex', 
-      gap: '16px', 
-      flexWrap: 'wrap', 
-      marginBottom: '24px', 
-      alignItems: 'flex-end' 
-    }}>
-      {[
-        ['Date début', 'date', filtreDateDebut, setFiltreDateDebut],
-        ['Date fin', 'date', filtreDateFin, setFiltreDateFin]
-      ].map(([lbl, type, val, setter]) => (
-        <div key={lbl} style={{ flex: 1, minWidth: '150px' }}>
-          <label style={styles.label}>{lbl}</label>
-          <input 
-            type={type} 
-            value={val} 
-            onChange={e => setter(e.target.value)} 
-            style={styles.input} 
-          />
-        </div>
-      ))}
-      
-      <div style={{ flex: 1, minWidth: '150px' }}>
-        <label style={styles.label}>Vendeur</label>
-        <select 
-          value={filtreVendeur} 
-          onChange={e => setFiltreVendeur(e.target.value)} 
-          style={styles.input}
-        >
-          <option value="">Tous</option>
-          {[...new Set(ventes.map(v => v.vendeur))].map(v => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
-      </div>
-      
-      <div style={{ flex: 1, minWidth: '150px' }}>
-        <label style={styles.label}>Produit</label>
-        <select 
-          value={filtreProduit} 
-          onChange={e => setFiltreProduit(e.target.value)} 
-          style={styles.input}
-        >
-          <option value="">Tous</option>
-          {[...new Set(ventes.map(v => v.produit?.nom).filter(Boolean))].map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-      </div>
-      
-      <button 
-        onClick={() => { 
-          setFiltreDateDebut(''); 
-          setFiltreDateFin(''); 
-          setFiltreVendeur(''); 
-          setFiltreProduit(''); 
-        }} 
-        style={{ 
-          ...styles.btnSecondary, 
-          height: '42px', 
-          padding: '0 20px',
-          background: 'var(--bg-btn-secondary)',
-          color: 'var(--text-secondary)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '40px',
-          cursor: 'pointer',
-          fontWeight: '500'
-        }}
-      >
-        🔄 Réinitialiser
-      </button>
-      
-      <button 
-        onClick={exportPDF} 
-        style={{ 
-          ...styles.btnPrimary, 
-          height: '42px', 
-          padding: '0 20px', 
-          background: '#dc2626',
-          border: 'none',
-          borderRadius: '40px',
-          color: 'white',
-          cursor: 'pointer',
-          fontWeight: '600'
-        }}
-      >
-        📄 Export PDF
-      </button>
-    </div>
+        {activeSection === 'historique' && (
+          <div style={styles.card}>
+            <div style={styles.cardTitle}>📜 Historique des ventes</div>
 
-    {/* Liste des ventes */}
-    {ventes.length === 0 ? (
-      <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-        Aucune vente
-      </div>
-    ) : groupedVentes.length === 0 ? (
-      <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-        Aucune vente correspondant aux filtres
-      </div>
-    ) : (
-      groupedVentes.map((group, idx) => (
-        <div 
-          key={idx} 
-          style={{ 
-            marginBottom: '28px', 
-            border: '1px solid var(--border-color)', 
-            borderRadius: '20px', 
-            overflow: 'hidden',
-            transition: 'border-color 0.3s ease'
-          }}
-        >
-          {/* En-tête du groupe */}
-          <div style={{ 
-            background: 'var(--bg-table-header)', 
-            padding: '14px 20px', 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center', 
-            flexWrap: 'wrap', 
-            gap: '12px',
-            transition: 'background 0.3s ease'
-          }}>
-            <div style={{ color: 'var(--text-primary)' }}>
-              <strong>🧾 {group.factureId ? `Facture #${group.factureId}` : 'Transaction'}</strong> 
-              - {new Date(group.date).toLocaleString()}
-            </div>
-            <div style={{ color: 'var(--text-primary)' }}>
-              <strong>Total : {group.total.toLocaleString()} FCFA</strong>
-            </div>
-            <button 
-              onClick={() => imprimerTicketGroupe(group.ventes, group.total, group.vendeur)} 
-              style={{ 
-                ...styles.btnPrimary, 
-                padding: '6px 16px', 
-                fontSize: '13px',
-                background: '#3b82f6',
-                border: 'none',
-                borderRadius: '30px',
-                color: 'white',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              🖨️ Imprimer
-            </button>
-          </div>
-          
-          {/* Tableau des produits */}
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Produit</th>
-                <th style={styles.th}>Qté</th>
-                <th style={styles.th}>Prix unitaire</th>
-                <th style={styles.th}>Total</th>
-                <th style={styles.th}>Vendeur</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.ventes.map(v => (
-                <tr key={v.id}>
-                  <td style={styles.td}>{v.produit?.nom}</td>
-                  <td style={styles.td}>{v.quantite}</td>
-                  <td style={styles.td}>{v.prixUnitaire?.toLocaleString()} FCFA</td>
-                  <td style={styles.td}>{(v.prixUnitaire * v.quantite).toLocaleString()} FCFA</td>
-                  <td style={styles.td}>{v.vendeur}</td>
-                </tr>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px', alignItems: 'flex-end' }}>
+              {[['Date début', 'date', filtreDateDebut, setFiltreDateDebut], ['Date fin', 'date', filtreDateFin, setFiltreDateFin]].map(([lbl, type, val, setter]) => (
+                <div key={lbl} style={{ flex: 1, minWidth: '150px' }}>
+                  <label style={styles.label}>{lbl}</label>
+                  <input type={type} value={val} onChange={e => setter(e.target.value)} style={styles.input} />
+                </div>
               ))}
-            </tbody>
-          </table>
-        </div>
-      ))
-    )}
-  </div>
-)}
+              <div style={{ flex: 1, minWidth: '150px' }}>
+                <label style={styles.label}>Vendeur</label>
+                <select value={filtreVendeur} onChange={e => setFiltreVendeur(e.target.value)} style={styles.input}>
+                  <option value="">Tous</option>
+                  {[...new Set(ventes.map(v => v.vendeur))].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: '150px' }}>
+                <label style={styles.label}>Produit</label>
+                <select value={filtreProduit} onChange={e => setFiltreProduit(e.target.value)} style={styles.input}>
+                  <option value="">Tous</option>
+                  {[...new Set(ventes.map(v => v.produit?.nom).filter(Boolean))].map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              <button onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }} style={{ ...styles.btnSecondary, height: '42px', padding: '0 20px' }}>🔄 Réinitialiser</button>
+              <button onClick={exportPDF} style={{ ...styles.btnPrimary, height: '42px', padding: '0 20px', background: '#dc2626' }}>📄 Export PDF</button>
+            </div>
 
-        {activeSection === 'panier'      && <CartComponent produits={produits} user={user} onSaleComplete={() => setRefresh(prev => prev + 1)} />}
-        {activeSection === 'cloture'     && <CashClosureComponent onCloture={() => setRefresh(prev => prev + 1)} />}
-        {activeSection === 'utilisateurs'&& <UserManagementComponent />}
-        {activeSection === 'fournisseurs'&& <FournisseurManagement />}
-        {activeSection === 'commandes'   && <CommandeFournisseur />}
+            {ventes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune vente</div>
+            ) : groupedVentes.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune vente correspondant aux filtres</div>
+            ) : (
+              groupedVentes.map((group, idx) => (
+                <div key={idx} style={{ marginBottom: '28px', border: '1px solid var(--border-color)', borderRadius: '20px', overflow: 'hidden' }}>
+                  <div style={{ background: 'var(--bg-table-header)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ color: 'var(--text-primary)' }}><strong>🧾 {group.factureId ? `Facture #${group.factureId}` : 'Transaction'}</strong> - {new Date(group.date).toLocaleString()}</div>
+                    <div style={{ color: 'var(--text-primary)' }}><strong>Total : {group.total.toLocaleString()} FCFA</strong></div>
+                    <button onClick={() => imprimerTicketGroupe(group.ventes, group.total, group.vendeur)} style={{ ...styles.btnPrimary, padding: '6px 16px', fontSize: '13px' }}>🖨️ Imprimer</button>
+                  </div>
+                  <table style={styles.table}>
+                    <thead><tr><th style={styles.th}>Produit</th><th style={styles.th}>Qté</th><th style={styles.th}>Prix unitaire</th><th style={styles.th}>Total</th><th style={styles.th}>Vendeur</th></tr></thead>
+                    <tbody>
+                      {group.ventes.map(v => (
+                        <tr key={v.id}>
+                          <td style={styles.td}>{v.produit?.nom}</td>
+                          <td style={styles.td}>{v.quantite}</td>
+                          <td style={styles.td}>{v.prixUnitaire?.toLocaleString()} FCFA</td>
+                          <td style={styles.td}>{(v.prixUnitaire * v.quantite).toLocaleString()} FCFA</td>
+                          <td style={styles.td}>{v.vendeur}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeSection === 'panier'       && <CartComponent produits={produits} user={user} onSaleComplete={() => setRefresh(prev => prev + 1)} />}
+        {activeSection === 'cloture'      && <CashClosureComponent onCloture={() => setRefresh(prev => prev + 1)} />}
+        {activeSection === 'utilisateurs' && <UserManagementComponent />}
+        {activeSection === 'fournisseurs' && <FournisseurManagement />}
+        {activeSection === 'commandes'    && <CommandeFournisseur />}
       </div>
     </div>
   );
@@ -2118,7 +1101,6 @@ function StockManagement() {
 // ==================== APP ROOT ====================
 function AppContent() {
   const { user, loading } = useAuth();
-  
   if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Chargement...</div>;
   if (!user) return <Login />;
   return <StockManagement />;
@@ -2126,17 +1108,17 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
     <ThemeProvider>
-      <Routes>
-        <Route path="/commande/confirmer/:token"          element={<CommandeConfirmation />} />
-        <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
-        <Route path="/commande/modifier/:token"           element={<CommandeModification />} />
-        <Route path="/confirmation-modification"          element={<ConfirmationModification />} />
-        <Route path="/*" element={<AuthProvider><AppContent /></AuthProvider>} />
-      </Routes>
-      </ThemeProvider>
-    </BrowserRouter>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/commande/confirmer/:token"             element={<CommandeConfirmation />} />
+          <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
+          <Route path="/commande/modifier/:token"              element={<CommandeModification />} />
+          <Route path="/confirmation-modification"             element={<ConfirmationModification />} />
+          <Route path="/*" element={<AuthProvider><AppContent /></AuthProvider>} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

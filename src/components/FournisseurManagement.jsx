@@ -267,14 +267,13 @@ export default function FournisseurManagement() {
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentFournisseurs = fournisseurs.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(fournisseurs.length / itemsPerPage);
+const totalPages = Math.ceil(fournisseurs.length / itemsPerPage);
 
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(totalPages);
-    }
-  }, [fournisseurs.length]);
-
+useEffect(() => {
+  if (currentPage > totalPages && totalPages > 0) {
+    setCurrentPage(totalPages);
+  }
+}, [currentPage, totalPages]);
   return (
     <div style={styles.card}>
       <div style={styles.flexBetween}>
