@@ -2,19 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { connectWebSocket, disconnectWebSocket } from '../services/websocketService';
 
-export default function RealTimeNotification() {
+export default function RealTimeNotification({ onNotification }) {
     const [notifications, setNotifications] = useState([]);
 
     useEffect(() => {
         // Connexion WebSocket
         connectWebSocket((notification) => {
             handleNotification(notification);
+            if (onNotification) onNotification(notification);
         });
 
         return () => {
             disconnectWebSocket();
         };
-    }, []);
+    }, [onNotification]);
 
     const handleNotification = (notification) => {
         // Ajouter la notification à l'état

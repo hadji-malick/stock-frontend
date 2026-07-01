@@ -26,8 +26,13 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 // ==================== HELPER DATE — clé stable YYYY-MM-DD ====================
 // Remplace toLocaleDateString('fr-FR') qui est fragile (fuseau horaire, locale du navigateur).
 // Utilisé partout où on doit comparer ou regrouper des ventes par jour.
+const parseDate = (value) => {
+  const date = new Date(value);
+  return value && !Number.isNaN(date.getTime()) ? date : null;
+};
 const toDateKey = (d) => {
-  const date = new Date(d);
+  const date = parseDate(d);
+  if (!date) return '';
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -713,6 +718,12 @@ function StockManagement() {
 
   useEffect(() => { if ('Notification' in window) Notification.requestPermission().catch(() => {}); }, []);
 
+  const handleWebsocketNotification = (notification) => {
+    if (notification?.type === 'VENTE') {
+      setRefresh(prev => prev + 1);
+    }
+  };
+
   const fetchCAMois = async () => { try { const res = await axios.get('http://localhost:8080/api/produits/ca-mois'); setCaMois(res.data); } catch (e) { console.error(e); } };
 
   const fetchProduits = async () => {
@@ -739,15 +750,17 @@ function StockManagement() {
   const fetchVentes = async () => {
     try {
       const res = await axios.get('http://localhost:8080/api/produits/ventes');
-      setVentes(res.data);
-      setTotalVentes(res.data.length);
-      setChiffreAffaire(res.data.reduce((s, v) => s + (v.montantTotal || 0), 0));
+      const ventesData = Array.isArray(res.data) ? res.data : [];
+      const sortedVentes = ventesData.slice().sort((a, b) => new Date(b.dateVente) - new Date(a.dateVente));
+      setVentes(sortedVentes);
+      setTotalVentes(sortedVentes.length);
+      setChiffreAffaire(sortedVentes.reduce((s, v) => s + (v.montantTotal || 0), 0));
 
       // Regroupement par jour avec clé stable
       const jourMap = new Map();
-      res.data.forEach(v => {
+      sortedVentes.forEach(v => {
         const key = toDateKey(v.dateVente);
-        jourMap.set(key, (jourMap.get(key) || 0) + v.quantite);
+        jourMap.set(key, (jourMap.get(key) || 0) + (v.quantite || 0));
       });
       // Tri chronologique explicite AVANT de garder les 30 derniers jours
       const sortedDays = Array.from(jourMap.entries())
@@ -756,8 +769,14 @@ function StockManagement() {
       setVentesParJour(sortedDays.slice(-30));
 
       const prodMap = new Map();
-      res.data.forEach(v => { const nom = v.produit?.nom || 'Inconnu'; prodMap.set(nom, (prodMap.get(nom) || 0) + v.quantite); });
-      setTopProduits(Array.from(prodMap.entries()).map(([nom, quantite]) => ({ nom, quantite })).sort((a, b) => b.quantite - a.quantite).slice(0, 8));
+      sortedVentes.forEach(v => {
+        const nom = v.produit?.nom || 'Inconnu';
+        prodMap.set(nom, (prodMap.get(nom) || 0) + (v.quantite || 0));
+      });
+      setTopProduits(Array.from(prodMap.entries())
+        .map(([nom, quantite]) => ({ nom, quantite }))
+        .sort((a, b) => b.quantite - a.quantite)
+        .slice(0, 8));
     } catch (e) { console.error(e); }
   };
 
@@ -855,23 +874,28 @@ function StockManagement() {
   };
 
   const ventesFiltrees = getVentesFiltrees();
+  const getSaleGroupKey = (sale) => {
+    const hasFacture = sale.factureId !== undefined && sale.factureId !== null;
+    if (hasFacture) return `facture_${sale.factureId}`;
+    return `transaction_${sale.vendeur || 'inconnu'}_${toDateKey(sale.dateVente)}_${sale.produit?.id || sale.produit?.nom || 'inconnu'}`;
+  };
   const groupedVentes = (() => {
     const groups = new Map();
     ventesFiltrees.forEach(v => {
-      const key = v.factureId ? `facture_${v.factureId}` : `temp_${new Date(v.dateVente).toISOString().slice(0, 16)}`;
+      const key = getSaleGroupKey(v);
       if (!groups.has(key)) groups.set(key, { ventes: [], factureId: v.factureId, date: v.dateVente, vendeur: v.vendeur });
       groups.get(key).ventes.push(v);
     });
     // tri du plus récent au plus ancien pour un affichage cohérent dans l'historique
     return Array.from(groups.values())
-      .map(group => ({ ...group, total: group.ventes.reduce((sum, v) => sum + (v.prixUnitaire * v.quantite), 0) }))
+      .map(group => ({ ...group, total: group.ventes.reduce((sum, v) => sum + ((v.prixUnitaire || 0) * (v.quantite || 0)), 0) }))
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   })();
 
   return (
     <div style={styles.container}>
       <Toaster position="top-right" />
-      <RealTimeNotification />
+      <RealTimeNotification onNotification={handleWebsocketNotification} />
 
       {/* ===== SIDEBAR ===== */}
       <div style={styles.sidebar}>

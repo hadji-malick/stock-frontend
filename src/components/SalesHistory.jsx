@@ -189,6 +189,17 @@ export default function SalesHistory() {
           <p className="text-gray-500">Aucune vente enregistrée</p>
         </div>
       )}
+      {historique.length > 0 && (
+        <div className="mt-8 bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Ventes sans facture détectées</h2>
+          {historique.filter(v => !factures.some(f => f.id === v.factureId)).map(v => (
+            <div key={v.id} className="border-b border-gray-100 py-3 last:border-b-0">
+              <p className="text-sm font-medium text-gray-800">{v.produit?.nom || 'Produit inconnu'} x {v.quantite}</p>
+              <p className="text-xs text-gray-500">Vendeur: {v.vendeur || 'N/A'} · {new Date(v.dateVente).toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
