@@ -22,6 +22,9 @@ import AccepterModification from './pages/AccepterModification';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import RealTimeNotification from './components/RealTimeNotification';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import CommandeDevis from './pages/CommandeDevis';
+import CommandeRejeterDemande from './pages/CommandeRejeterDemande';
+import ConfirmerDateExpedition from './pages/ConfirmerDateExpedition';
 
 // ==================== HELPER DATE — clé stable YYYY-MM-DD ====================
 // Remplace toLocaleDateString('fr-FR') qui est fragile (fuseau horaire, locale du navigateur).
@@ -955,101 +958,583 @@ function StockManagement() {
         )}
 
         {activeSection === 'stocks' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-              <div style={{ position: 'relative', flex: 1, maxWidth: '400px' }}>
-                <input type="text" placeholder="🔍 Rechercher par nom ou référence..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ ...styles.input, paddingLeft: '38px', borderRadius: '40px' }} />
-              </div>
-              <button onClick={() => { setStockTab('add'); setShowStockModal(true); }} style={{ ...styles.btnPrimary, padding: '10px 24px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '40px' }}>➕ Nouvelle opération</button>
-            </div>
-            <div style={styles.card}>
-              <div style={styles.cardTitle}>📋 Produits en stock</div>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg-table-header)', borderBottom: '2px solid var(--border-color)' }}>
-                      {['Référence', 'Nom', 'Prix (FCFA)', 'Stock', 'Fournisseur', 'Actions'].map((h, i) => <th key={i} style={{ ...styles.th, padding: '14px 12px', textAlign: i === 5 ? 'center' : 'left' }}>{h}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedProduits.map(p => {
-                      const isLowStock = p.quantiteStock <= (p.seuilAlerte || 5);
-                      const isRupture = p.quantiteStock === 0;
-                      let stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-success)', color: 'var(--badge-success)' };
-                      if (isRupture) stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-danger)', color: 'var(--badge-danger)' };
-                      else if (isLowStock) stockBadgeStyle = { ...styles.badge, background: 'var(--bg-badge-warning)', color: 'var(--badge-warning)' };
-                      return (
-                        <tr key={p.id} style={{ borderBottom: '1px solid var(--border-color)', transition: '0.2s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-table-row-hover)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                          <td style={{ ...styles.td, fontFamily: 'monospace', fontWeight: '500' }}>{p.reference}</td>
-                          <td style={{ ...styles.td, fontWeight: '600' }}>{p.nom}</td>
-                          <td style={styles.td}>{p.prixVente?.toLocaleString()} FCFA</td>
-                          <td style={styles.td}><span style={stockBadgeStyle}>{p.quantiteStock}</span></td>
-                          <td style={styles.td}>{p.fournisseur?.nom || '-'}</td>
-                          <td style={{ ...styles.td, textAlign: 'center' }}>
-                            <button onClick={() => { setProduitEdit(p); setShowEditModal(true); }} style={{ background: '#3b82f6', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500', marginRight: '8px' }}>✏️ Modifier</button>
-                            <button onClick={() => { setProductToDelete(p.id); setShowDeleteConfirm(true); }} style={{ background: '#ef4444', border: 'none', color: 'white', padding: '6px 12px', borderRadius: '30px', fontSize: '12px', cursor: 'pointer', fontWeight: '500' }}>🗑️ Supprimer</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {paginatedProduits.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucun produit trouvé</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-              {totalPages > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '6px 14px', borderRadius: '30px', background: 'var(--bg-btn-secondary)', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === 1 ? 0.5 : 1, color: 'var(--text-secondary)' }}>◀ Précédent</button>
-                  <span style={{ padding: '6px 12px', background: 'var(--bg-table-header)', borderRadius: '30px', fontSize: '14px', fontWeight: '500', color: 'var(--text-primary)' }}>Page {currentPage} / {totalPages}</span>
-                  <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '6px 14px', borderRadius: '30px', background: 'var(--bg-btn-secondary)', border: 'none', cursor: 'pointer', fontWeight: '500', opacity: currentPage === totalPages ? 0.5 : 1, color: 'var(--text-secondary)' }}>Suivant ▶</button>
-                </div>
-              )}
-            </div>
+  <div>
+    {/* ===== HEADER AVEC RECHERCHE ===== */}
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      marginBottom: '24px', 
+      flexWrap: 'wrap', 
+      gap: '16px' 
+    }}>
+      <div style={{ 
+        position: 'relative', 
+        flex: 1, 
+        maxWidth: '400px' 
+      }}>
+        <span style={{ 
+          position: 'absolute', 
+          left: '16px', 
+          top: '50%', 
+          transform: 'translateY(-50%)', 
+          color: 'var(--text-muted)',
+          fontSize: '16px'
+        }}>🔍</span>
+        <input 
+          type="text" 
+          placeholder="Rechercher par nom ou référence..." 
+          value={searchTerm} 
+          onChange={e => setSearchTerm(e.target.value)} 
+          style={{ 
+            ...styles.input, 
+            paddingLeft: '44px', 
+            borderRadius: '40px',
+            height: '44px',
+            border: '1px solid var(--input-border)',
+            transition: '0.2s'
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = '#3b82f6';
+            e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = 'var(--input-border)';
+            e.target.style.boxShadow = 'none';
+          }}
+        />
+      </div>
+      <button 
+        onClick={() => { setStockTab('add'); setShowStockModal(true); }} 
+        style={{ 
+          ...styles.btnPrimary, 
+          padding: '10px 24px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '8px', 
+          borderRadius: '40px',
+          height: '44px'
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.background = '#2563eb'}
+        onMouseLeave={(e) => e.currentTarget.style.background = '#3b82f6'}
+      >
+        ➕ Nouvelle opération
+      </button>
+    </div>
 
-            {showStockModal && (
-              <div style={styles.modal}><div style={{ ...styles.modalContent, maxWidth: '580px' }}>
-                <div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>📦 Gestion des stocks</h3><button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
-                <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
-                  <button onClick={() => setStockTab('add')} style={{ padding: '10px 18px', background: stockTab === 'add' ? '#3b82f6' : 'transparent', color: stockTab === 'add' ? 'white' : 'var(--text-secondary)', border: 'none', borderRadius: '40px', fontWeight: '600' }}>➕ Ajouter</button>
-                  <button onClick={() => setStockTab('restock')} style={{ padding: '10px 18px', background: stockTab === 'restock' ? '#3b82f6' : 'transparent', color: stockTab === 'restock' ? 'white' : 'var(--text-secondary)', border: 'none', borderRadius: '40px', fontWeight: '600' }}>📥 Réapprovisionner</button>
-                </div>
-                {stockTab === 'add' && (
-                  <form onSubmit={addProduct}>
-                    <div style={styles.formGroup}><label style={styles.label}>Référence</label><input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({ ...newProduct, reference: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({ ...newProduct, nom: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Prix (FCFA)</label><input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({ ...newProduct, prixVente: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Quantité initiale</label><input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({ ...newProduct, quantiteStock: e.target.value })} required /></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={newProduct.fournisseurId || ''} onChange={e => setNewProduct({ ...newProduct, fournisseurId: e.target.value })}><option value="">-- Aucun --</option>{fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}</select></div>
-                    <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Ajouter</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-                  </form>
-                )}
-                {stockTab === 'restock' && (
-                  <form onSubmit={handleRestock}>
-                    <div style={styles.formGroup}><label style={styles.label}>Produit</label><select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required><option value="">-- Sélectionner --</option>{produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}</select></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Quantité</label><input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required /></div>
-                    <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}><option value="">-- Sélectionner un fournisseur --</option>{fournisseurs.map(f => <option key={f.id} value={f.nom}>{f.nom}</option>)}</select></div>
-                    <div style={styles.gap2}><button type="submit" style={styles.btnPrimary} disabled={restockLoading}>{restockLoading ? 'Traitement...' : 'Réapprovisionner'}</button><button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-                  </form>
-                )}
-              </div></div>
-            )}
+    {/* ===== TABLEAU ===== */}
+    <div style={{ 
+      overflowX: 'auto', 
+      borderRadius: '16px', 
+      border: '1px solid var(--border-color)', 
+      background: 'var(--bg-card)',
+      transition: 'background 0.3s ease, border 0.3s ease'
+    }}>
+      <table style={{ 
+        width: '100%', 
+        borderCollapse: 'collapse',
+        fontSize: '14px'
+      }}>
+        <thead>
+          <tr style={{ 
+            background: 'var(--bg-table-header)',
+            borderBottom: '2px solid var(--border-color)'
+          }}>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'left', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              width: '60px'
+            }}>
+              Thumbnail
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'left', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Référence
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'left', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Nom
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'left', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Prix (FCFA)
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'center', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              minWidth: '60px'
+            }}>
+              Stock
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'left', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Fournisseur
+            </th>
+            <th style={{ 
+              padding: '14px 16px', 
+              textAlign: 'center', 
+              fontSize: '12px', 
+              fontWeight: '600', 
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              minWidth: '180px'
+            }}>
+              Actions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {paginatedProduits.length === 0 ? (
+            <tr>
+              <td colSpan="7" style={{ 
+                textAlign: 'center', 
+                padding: '60px 20px', 
+                color: 'var(--text-muted)'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>📦</div>
+                <p>Aucun produit trouvé</p>
+              </td>
+            </tr>
+          ) : (
+            paginatedProduits.map((p, index) => {
+              const isLowStock = p.quantiteStock <= (p.seuilAlerte || 5);
+              const isRupture = p.quantiteStock === 0;
+              
+              let stockBadgeStyle = { 
+                background: '#dcfce7', 
+                color: '#166534',
+                border: '1px solid #6ee7b7'
+              };
+              if (isRupture) {
+                stockBadgeStyle = { 
+                  background: '#fee2e2', 
+                  color: '#991b1b',
+                  border: '1px solid #fca5a5'
+                };
+              } else if (isLowStock) {
+                stockBadgeStyle = { 
+                  background: '#fef3c7', 
+                  color: '#92400e',
+                  border: '1px solid #fcd34d'
+                };
+              }
 
-            {showEditModal && produitEdit && (
-              <div style={styles.modal}><div style={{ ...styles.modalContent, maxWidth: '500px' }}>
-                <div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le produit</h3><button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div>
-                <form onSubmit={handleUpdateProduct}>
-                  <div style={styles.formGroup}><label style={styles.label}>Référence</label><input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({ ...produitEdit, reference: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({ ...produitEdit, nom: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label style={styles.label}>Prix (FCFA)</label><input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({ ...produitEdit, prixVente: e.target.value })} required /></div>
-                  <div style={styles.formGroup}><label style={styles.label}>Seuil alerte</label><input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({ ...produitEdit, seuilAlerte: e.target.value })} /></div>
-                  <div style={styles.formGroup}><label style={styles.label}>Fournisseur</label><select style={styles.input} value={produitEdit.fournisseur?.id || ''} onChange={e => setProduitEdit({ ...produitEdit, fournisseur: e.target.value ? { id: parseInt(e.target.value) } : null })}><option value="">-- Aucun --</option>{fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}</select></div>
-                  <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>Enregistrer</button><button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-                </form>
-              </div></div>
-            )}
+              // Couleurs d'avatar par produit
+              const avatarColors = [
+                '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+                '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
+              ];
+              const avatarColor = avatarColors[index % avatarColors.length];
+              const initials = p.nom?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
-            <ConfirmationModal isOpen={showDeleteConfirm} onClose={() => setShowDeleteConfirm(false)} onConfirm={deleteProduct} title="Confirmation" message="Supprimer ce produit ?" />
+              return (
+                <tr 
+                  key={p.id} 
+                  style={{ 
+                    borderBottom: '1px solid var(--border-color)',
+                    transition: '0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-table-row-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  {/* Thumbnail / Avatar */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)'
+                  }}>
+                    <div style={{ 
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: avatarColor + '22',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: avatarColor,
+                      border: `2px solid ${avatarColor}44`
+                    }}>
+                      {initials}
+                    </div>
+                  </td>
+                  
+                  {/* Référence */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'monospace',
+                    fontWeight: '500'
+                  }}>
+                    {p.reference || '-'}
+                  </td>
+                  
+                  {/* Nom */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontWeight: '600'
+                  }}>
+                    {p.nom}
+                  </td>
+                  
+                  {/* Prix */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    fontWeight: '500'
+                  }}>
+                    {p.prixVente?.toLocaleString()} FCFA
+                  </td>
+                  
+                  {/* Stock */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    textAlign: 'center'
+                  }}>
+                    <span style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '32px',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      ...stockBadgeStyle
+                    }}>
+                      {p.quantiteStock}
+                    </span>
+                  </td>
+                  
+                  {/* Fournisseur */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)'
+                  }}>
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      background: 'var(--bg-badge-default)',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px'
+                    }}>
+                      🏭 {p.fournisseur?.nom || '-'}
+                    </span>
+                  </td>
+                  
+                  {/* Actions */}
+                  <td style={{ 
+                    padding: '12px 16px',
+                    borderBottom: '1px solid var(--border-color)',
+                    textAlign: 'center'
+                  }}>
+                    <button 
+                      onClick={() => { setProduitEdit(p); setShowEditModal(true); }} 
+                      style={{ 
+                        background: '#3b82f6',
+                        border: 'none',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        marginRight: '8px',
+                        transition: '0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#2563eb'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = '#3b82f6'}
+                    >
+                      ✏️ Modifier
+                    </button>
+                    <button 
+                      onClick={() => { setProductToDelete(p.id); setShowDeleteConfirm(true); }} 
+                      style={{ 
+                        background: '#ef4444',
+                        border: 'none',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '30px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        transition: '0.2s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+
+    {/* ===== PAGINATION ===== */}
+    {totalPages > 1 && (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        gap: '12px', 
+        marginTop: '20px', 
+        paddingTop: '16px', 
+        borderTop: '1px solid var(--border-color)' 
+      }}>
+        <button 
+          onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+          disabled={currentPage === 1}
+          style={{ 
+            padding: '8px 16px',
+            borderRadius: '30px',
+            border: '1px solid var(--border-color)',
+            background: currentPage === 1 ? 'var(--bg-btn-secondary)' : 'var(--bg-table-header)',
+            color: 'var(--text-secondary)',
+            cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+            fontWeight: '500',
+            fontSize: '13px',
+            opacity: currentPage === 1 ? 0.5 : 1,
+            transition: '0.2s'
+          }}
+        >
+          ◀ Précédent
+        </button>
+        <span style={{ 
+          padding: '8px 16px',
+          background: 'var(--bg-table-header)',
+          borderRadius: '30px',
+          fontSize: '13px',
+          fontWeight: '500',
+          color: 'var(--text-secondary)'
+        }}>
+          Page {currentPage} / {totalPages}
+        </span>
+        <button 
+          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+          disabled={currentPage === totalPages}
+          style={{ 
+            padding: '8px 16px',
+            borderRadius: '30px',
+            border: '1px solid var(--border-color)',
+            background: currentPage === totalPages ? 'var(--bg-btn-secondary)' : 'var(--bg-table-header)',
+            color: 'var(--text-secondary)',
+            cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+            fontWeight: '500',
+            fontSize: '13px',
+            opacity: currentPage === totalPages ? 0.5 : 1,
+            transition: '0.2s'
+          }}
+        >
+          Suivant ▶
+        </button>
+      </div>
+    )}
+
+    {/* ===== MODAL STOCK ===== */}
+    {showStockModal && (
+      <div style={styles.modal}>
+        <div style={{ ...styles.modalContent, maxWidth: '580px' }}>
+          <div style={styles.flexBetween}>
+            <h3 style={{ color: 'var(--text-primary)' }}>📦 Gestion des stocks</h3>
+            <button onClick={() => setShowStockModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
           </div>
-        )}
+          <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <button 
+              onClick={() => setStockTab('add')} 
+              style={{ 
+                padding: '10px 18px', 
+                background: stockTab === 'add' ? '#3b82f6' : 'transparent', 
+                color: stockTab === 'add' ? 'white' : 'var(--text-secondary)', 
+                border: 'none', 
+                borderRadius: '40px', 
+                fontWeight: '600',
+                transition: '0.2s'
+              }}
+            >
+              ➕ Ajouter
+            </button>
+            <button 
+              onClick={() => setStockTab('restock')} 
+              style={{ 
+                padding: '10px 18px', 
+                background: stockTab === 'restock' ? '#3b82f6' : 'transparent', 
+                color: stockTab === 'restock' ? 'white' : 'var(--text-secondary)', 
+                border: 'none', 
+                borderRadius: '40px', 
+                fontWeight: '600',
+                transition: '0.2s'
+              }}
+            >
+              📥 Réapprovisionner
+            </button>
+          </div>
+          
+          {stockTab === 'add' && (
+            <form onSubmit={addProduct}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Référence *</label>
+                <input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({ ...newProduct, reference: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Nom *</label>
+                <input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({ ...newProduct, nom: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Prix (FCFA) *</label>
+                <input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({ ...newProduct, prixVente: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Quantité initiale *</label>
+                <input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({ ...newProduct, quantiteStock: e.target.value })} required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fournisseur</label>
+                <select style={styles.input} value={newProduct.fournisseurId || ''} onChange={e => setNewProduct({ ...newProduct, fournisseurId: e.target.value })}>
+                  <option value="">-- Aucun --</option>
+                  {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+                </select>
+              </div>
+              <div style={styles.gap2}>
+                <button type="submit" style={styles.btnPrimary}>✅ Ajouter</button>
+                <button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+              </div>
+            </form>
+          )}
+          
+          {stockTab === 'restock' && (
+            <form onSubmit={handleRestock}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Produit *</label>
+                <select style={styles.input} value={restockProductId} onChange={e => setRestockProductId(parseInt(e.target.value))} required>
+                  <option value="">-- Sélectionner --</option>
+                  {produits.map(p => <option key={p.id} value={p.id}>{p.nom} (Stock: {p.quantiteStock})</option>)}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Quantité *</label>
+                <input type="number" style={styles.input} value={restockQuantity} onChange={e => setRestockQuantity(parseInt(e.target.value))} min="1" required />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Fournisseur</label>
+                <select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}>
+                  <option value="">-- Sélectionner un fournisseur --</option>
+                  {fournisseurs.map(f => <option key={f.id} value={f.nom}>{f.nom}</option>)}
+                </select>
+              </div>
+              <div style={styles.gap2}>
+                <button type="submit" style={styles.btnPrimary} disabled={restockLoading}>
+                  {restockLoading ? '⏳ Traitement...' : '📥 Réapprovisionner'}
+                </button>
+                <button type="button" onClick={() => setShowStockModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* ===== MODAL MODIFICATION ===== */}
+    {showEditModal && produitEdit && (
+      <div style={styles.modal}>
+        <div style={{ ...styles.modalContent, maxWidth: '500px' }}>
+          <div style={styles.flexBetween}>
+            <h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le produit</h3>
+            <button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
+          </div>
+          <form onSubmit={handleUpdateProduct}>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Référence *</label>
+              <input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({ ...produitEdit, reference: e.target.value })} required />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Nom *</label>
+              <input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({ ...produitEdit, nom: e.target.value })} required />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Prix (FCFA) *</label>
+              <input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({ ...produitEdit, prixVente: e.target.value })} required />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Seuil alerte</label>
+              <input type="number" style={styles.input} value={produitEdit.seuilAlerte || 5} onChange={e => setProduitEdit({ ...produitEdit, seuilAlerte: e.target.value })} />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Fournisseur</label>
+              <select style={styles.input} value={produitEdit.fournisseur?.id || ''} onChange={e => setProduitEdit({ ...produitEdit, fournisseur: e.target.value ? { id: parseInt(e.target.value) } : null })}>
+                <option value="">-- Aucun --</option>
+                {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
+              </select>
+            </div>
+            <div style={styles.gap2}>
+              <button type="submit" style={styles.btnPrimary}>✅ Enregistrer</button>
+              <button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
+
+    <ConfirmationModal 
+      isOpen={showDeleteConfirm} 
+      onClose={() => setShowDeleteConfirm(false)} 
+      onConfirm={deleteProduct} 
+      title="Confirmation" 
+      message="Supprimer ce produit ?" 
+    />
+  </div>
+)}
 
         {activeSection === 'historique' && (
           <div style={styles.card}>
@@ -1076,7 +1561,7 @@ function StockManagement() {
                   {[...new Set(ventes.map(v => v.produit?.nom).filter(Boolean))].map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <button onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }} style={{ ...styles.btnSecondary, height: '42px', padding: '0 20px' }}>🔄 Réinitialiser</button>
+              <button onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }} style={{ ...styles.btnSecondary, height: '42px', padding: '0 20px' }}></button>
               <button onClick={exportPDF} style={{ ...styles.btnPrimary, height: '42px', padding: '0 20px', background: '#dc2626' }}>📄 Export PDF</button>
             </div>
 
@@ -1135,12 +1620,15 @@ function App() {
     <ThemeProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/commande/confirmer/:token"             element={<CommandeConfirmation />} />
-          <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
-          <Route path="/commande/modifier/:token"              element={<CommandeModification />} />
-          <Route path="/confirmation-modification"             element={<ConfirmationModification />} />
-          <Route path="/*" element={<AuthProvider><AppContent /></AuthProvider>} />
-        </Routes>
+  <Route path="/commande/confirmer/:token"             element={<CommandeConfirmation />} />
+  <Route path="/commande/accepter-modification/:token" element={<AccepterModification />} />
+  <Route path="/commande/modifier/:token"              element={<CommandeModification />} />
+  <Route path="/confirmation-modification"             element={<ConfirmationModification />} />
+  <Route path="/commande/devis/:token"                 element={<CommandeDevis />} />
+  <Route path="/commande/rejeter-demande/:token"        element={<CommandeRejeterDemande />} />
+  <Route path="/commande/confirmer-date/:token"         element={<ConfirmerDateExpedition />} />
+  <Route path="/*" element={<AuthProvider><AppContent /></AuthProvider>} />
+</Routes>
       </BrowserRouter>
     </ThemeProvider>
   );
