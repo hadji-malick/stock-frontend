@@ -355,6 +355,14 @@ function CartComponent({ produits, user, onSaleComplete }) {
   const [panier, setPanier] = useState([]);
   const [quantites, setQuantites] = useState({});
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const setQty = (produitId, value, maxStock) => {
+    let q = parseInt(value) || 0;
+    if (q < 1) q = 1;
+    if (q > maxStock) q = maxStock;
+    setQuantites({ ...quantites, [produitId]: q });
+  };
 
   const ajouterAuPanier = (produit) => {
     const qty = quantites[produit.id] || 1;
@@ -362,7 +370,7 @@ function CartComponent({ produits, user, onSaleComplete }) {
     setPanier(prev => {
       const existing = prev.find(i => i.id === produit.id);
       if (existing) {
-        if (existing.quantite + qty > produit.quantiteStock) return prev;
+        if (existing.quantite + qty > produit.quantiteStock) { toast.error('Stock maximum atteint'); return prev; }
         return prev.map(i => i.id === produit.id ? { ...i, quantite: i.quantite + qty } : i);
       }
       return [...prev, { ...produit, quantite: qty }];
@@ -399,51 +407,154 @@ function CartComponent({ produits, user, onSaleComplete }) {
     win.document.close();
   };
 
+  const posColors = { blue: '#3b82f6', green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
+  const avatarColors = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
+  const colorFor = (name = '') => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
+  const initialsFor = (name = '') => name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+
+  const filteredProduits = produits.filter(p => p.quantiteStock > 0 && (p.nom?.toLowerCase().includes(searchTerm.toLowerCase()) || p.reference?.toLowerCase().includes(searchTerm.toLowerCase())));
   const total = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+  const totalArticles = panier.reduce((s, i) => s + i.quantite, 0);
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>📦 Produits disponibles</div>
-        <div style={styles.productGrid}>
-          {produits.filter(p => p.quantiteStock > 0).map(p => (
-            <div key={p.id} style={styles.productCard}>
-              <div style={styles.productName}>{p.nom}</div>
-              <div style={styles.productPrice}>{p.prixVente.toLocaleString()} FCFA</div>
-              <div style={styles.productStock}>Stock: {p.quantiteStock}</div>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <input type="number" min="1" max={p.quantiteStock} value={quantites[p.id] || 1} onChange={e => setQuantites({ ...quantites, [p.id]: parseInt(e.target.value) || 1 })} style={{ width: '70px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '12px', textAlign: 'center' }} />
-                <button style={styles.btnSuccess} onClick={() => ajouterAuPanier(p)}>➕ Ajouter</button>
-              </div>
-            </div>
-          ))}
+    <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '24px', alignItems: 'start' }}>
+      <style>{`
+        .pt-ticket-edge {
+          height: 12px;
+          background:
+            linear-gradient(-45deg, var(--bg-card) 8px, transparent 0) 0 0,
+            linear-gradient(45deg, var(--bg-card) 8px, transparent 0) 0 0;
+          background-size: 16px 16px;
+          background-color: var(--bg-primary);
+        }
+      `}</style>
+
+      {/* ===== CATALOGUE PRODUITS ===== */}
+      <div style={{ ...styles.card, marginBottom: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginBottom: 18 }}>
+          <div style={styles.cardTitle}>📦 Produits disponibles</div>
+          <div style={{ position: 'relative', minWidth: 240 }}>
+            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Rechercher un produit..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{ ...styles.input, paddingLeft: 38, borderRadius: 40, height: 38 }}
+            />
+          </div>
         </div>
-      </div>
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>🛒 Panier ({panier.length})</div>
-        {panier.length === 0 ? <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Panier vide</div> : (
-          <>
-            {panier.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid var(--border-color)' }}>
-                <div><strong>{item.nom}</strong><br />{item.prixVente.toLocaleString()} FCFA</div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <button onClick={() => modifierQuantite(item.id, item.quantite - 1, item.quantiteStock)} style={{ background: '#e2e8f0', border: 'none', width: '28px', height: '28px', borderRadius: '30px', fontWeight: 'bold' }}>-</button>
-                  <span style={{ width: '30px', textAlign: 'center' }}>{item.quantite}</span>
-                  <button onClick={() => modifierQuantite(item.id, item.quantite + 1, item.quantiteStock)} style={{ background: '#e2e8f0', border: 'none', width: '28px', height: '28px', borderRadius: '30px', fontWeight: 'bold' }}>+</button>
-                  <button onClick={() => retirerDuPanier(item.id)} style={styles.btnDanger}>🗑️</button>
+
+        <div style={styles.productGrid}>
+          {filteredProduits.map(p => {
+            const isLow = p.quantiteStock <= (p.seuilAlerte || 5);
+            const color = colorFor(p.nom);
+            const qty = quantites[p.id] || 1;
+            return (
+              <div key={p.id} style={{ ...styles.productCard, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: color + '22', color, border: `1.5px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
+                    {initialsFor(p.nom)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...styles.productName, marginBottom: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nom}</div>
+                    <div style={{ fontSize: 11, color: isLow ? posColors.amber : 'var(--text-muted)', fontWeight: 600 }}>
+                      {isLow ? `⚠️ Stock: ${p.quantiteStock}` : `Stock: ${p.quantiteStock}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.productPrice}>{p.prixVente.toLocaleString()} FCFA</div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 30, overflow: 'hidden' }}>
+                    <button onClick={() => setQty(p.id, qty - 1, p.quantiteStock)} style={{ width: 30, height: 30, border: 'none', background: 'var(--bg-btn-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>-</button>
+                    <span style={{ width: 32, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{qty}</span>
+                    <button onClick={() => setQty(p.id, qty + 1, p.quantiteStock)} style={{ width: 30, height: 30, border: 'none', background: 'var(--bg-btn-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                  </div>
+                  <button
+                    style={{ ...styles.btnSuccess, flex: 1, opacity: p.quantiteStock === 0 ? 0.5 : 1, cursor: p.quantiteStock === 0 ? 'not-allowed' : 'pointer' }}
+                    disabled={p.quantiteStock === 0}
+                    onClick={() => ajouterAuPanier(p)}
+                  >➕ Ajouter</button>
                 </div>
               </div>
-            ))}
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '2px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>Total : {total.toLocaleString()} FCFA</span>
-              <button style={styles.btnPrimary} onClick={validerVente} disabled={loading}>{loading ? 'Vente...' : '✅ Valider'}</button>
+            );
+          })}
+          {filteredProduits.length === 0 && (
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>🔍</div>
+              Aucun produit ne correspond à votre recherche
             </div>
-          </>
-        )}
+          )}
+        </div>
+      </div>
+
+      {/* ===== TICKET / PANIER ===== */}
+      <div style={{ position: 'sticky', top: 20 }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '20px 20px 0 0', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+          <div style={{ padding: '20px 22px 14px 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={styles.cardTitle}>🧾 Ticket en cours</div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: posColors.blue, background: posColors.blue + '1c', padding: '4px 10px', borderRadius: 20 }}>
+                {totalArticles} article{totalArticles > 1 ? 's' : ''}
+              </span>
+            </div>
+          </div>
+
+          {panier.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--text-muted)' }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>🛒</div>
+              Le ticket est vide
+            </div>
+          ) : (
+            <div style={{ padding: '0 22px', maxHeight: '46vh', overflowY: 'auto' }}>
+              {panier.map((item, idx) => (
+                <div key={item.id} style={{ padding: '12px 0', borderBottom: idx < panier.length - 1 ? '1px dashed var(--border-color)' : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 14 }}>{item.nom}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                        {item.prixVente.toLocaleString()} × {item.quantite}
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>
+                      {(item.prixVente * item.quantite).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 30, overflow: 'hidden' }}>
+                      <button onClick={() => modifierQuantite(item.id, item.quantite - 1, item.quantiteStock)} style={{ width: 26, height: 26, border: 'none', background: 'var(--bg-btn-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>-</button>
+                      <span style={{ width: 28, textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{item.quantite}</span>
+                      <button onClick={() => modifierQuantite(item.id, item.quantite + 1, item.quantiteStock)} style={{ width: 26, height: 26, border: 'none', background: 'var(--bg-btn-secondary)', color: 'var(--text-primary)', fontWeight: 700, cursor: 'pointer' }}>+</button>
+                    </div>
+                    <button onClick={() => retirerDuPanier(item.id)} style={{ background: posColors.red + '1c', color: posColors.red, border: 'none', borderRadius: 30, padding: '5px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>🗑️ Retirer</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="pt-ticket-edge" />
+
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderTop: 'none', borderRadius: '0 0 20px 20px', padding: '18px 22px', boxShadow: 'var(--shadow)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Total</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{total.toLocaleString()} <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>FCFA</span></span>
+          </div>
+          <button
+            style={{ ...styles.btnPrimary, width: '100%', background: posColors.green, justifyContent: 'center', fontSize: 15, padding: '14px', opacity: (!panier.length || loading) ? 0.6 : 1, cursor: (!panier.length || loading) ? 'not-allowed' : 'pointer' }}
+            onClick={validerVente}
+            disabled={!panier.length || loading}
+          >
+            {loading ? '⏳ Validation...' : '✅ Valider la vente'}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-
 // ==================== CLÔTURE CAISSE ====================
 function CashClosureComponent({ onCloture }) {
   const { user } = useAuth();
@@ -492,12 +603,15 @@ function CashClosureComponent({ onCloture }) {
     if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
   }, [historiqueClotures.length]);
 
-  const getEcartBadge = (type) => {
-    if (type === 'MANQUANT') return { label: 'Manquant', bg: 'var(--bg-badge-danger)', color: 'var(--badge-danger)', icon: '⚠️' };
-    if (type === 'EXCEDENT') return { label: 'Excédent', bg: 'var(--bg-badge-warning)', color: 'var(--badge-warning)', icon: '📈' };
-    return { label: 'OK', bg: 'var(--bg-badge-success)', color: 'var(--badge-success)', icon: '✅' };
+  const cashColors = { blue: '#3b82f6', green: '#10b981', amber: '#f59e0b', red: '#ef4444', gray: '#94a3b8' };
+
+  const getEcartMeta = (type) => {
+    if (type === 'MANQUANT') return { label: 'Manquant', icon: '⚠️', color: cashColors.red };
+    if (type === 'EXCEDENT') return { label: 'Excédent', icon: '📈', color: cashColors.amber };
+    return { label: 'Équilibré', icon: '✅', color: cashColors.green };
   };
 
+  // ===== Vue historique (ADMIN / STOCK_MANAGER) =====
   if (!isVendeur && canSeeHistorique) {
     return (
       <div style={styles.card}>
@@ -506,19 +620,25 @@ function CashClosureComponent({ onCloture }) {
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune clôture enregistrée</div>
         ) : (
           <>
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid var(--border-color)', marginTop: 12 }}>
               <table style={styles.table}>
                 <thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Théorique</th><th style={styles.th}>Réel</th><th style={styles.th}>Écart</th><th style={styles.th}>Type</th><th style={styles.th}>Caissier</th><th style={styles.th}>Commentaire</th></tr></thead>
                 <tbody>
                   {currentClotures.map(c => {
-                    const badge = getEcartBadge(c.typeEcart);
+                    const meta = getEcartMeta(c.typeEcart);
                     return (
                       <tr key={c.id}>
                         <td style={styles.td}>{new Date(c.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}</td>
                         <td style={styles.td}><strong>{c.montantTheorique?.toLocaleString()} FCFA</strong></td>
                         <td style={styles.td}><strong>{c.montantReel?.toLocaleString()} FCFA</strong></td>
-                        <td style={styles.td}>{c.ecart?.toLocaleString()} FCFA</td>
-                        <td style={styles.td}><span style={{ ...styles.badge, background: badge.bg, color: badge.color }}>{badge.icon} {badge.label}</span></td>
+                        <td style={{ ...styles.td, fontFamily: 'monospace', color: meta.color, fontWeight: 700 }}>
+                          {c.ecart > 0 ? '+' : ''}{c.ecart?.toLocaleString()} FCFA
+                        </td>
+                        <td style={styles.td}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: meta.color + '1c', color: meta.color, border: `1px solid ${meta.color}33` }}>
+                            {meta.icon} {meta.label}
+                          </span>
+                        </td>
                         <td style={styles.td}>{c.caissier}</td>
                         <td style={styles.td}>{c.commentaire || '-'}</td>
                       </tr>
@@ -540,18 +660,25 @@ function CashClosureComponent({ onCloture }) {
     );
   }
 
+  // ===== Vue "déjà clôturée" =====
   if (statut?.estCloturee) {
     return (
       <div style={styles.card}>
-        <div style={styles.cardTitle}>✅ Clôture déjà effectuée</div>
-        <div style={{ textAlign: 'center', padding: '30px 20px', background: 'var(--bg-badge-success)', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '48px', marginBottom: 12 }}>🔒</div>
-          <p style={{ fontWeight: 600, color: 'var(--badge-success)' }}>Caisse déjà clôturée aujourd'hui</p>
+        <div style={styles.cardTitle}>🔒 Clôture de caisse</div>
+        <div style={{ textAlign: 'center', padding: '40px 20px', background: cashColors.green + '10', borderRadius: '20px', border: `1px solid ${cashColors.green}33`, marginTop: 12 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: cashColors.green + '1c', color: cashColors.green, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 14px' }}>🔒</div>
+          <p style={{ fontWeight: 700, color: cashColors.green, fontSize: 16, margin: 0 }}>Caisse déjà clôturée aujourd'hui</p>
           {statut.cloture && (
-            <div style={{ background: 'var(--bg-card)', padding: '16px 20px', borderRadius: '14px', marginTop: '16px', border: '1px solid var(--border-color)', display: 'inline-block', textAlign: 'left' }}>
-              <p style={{ color: 'var(--text-primary)' }}>Montant théorique : <strong>{statut.cloture.montantTheorique?.toLocaleString()} FCFA</strong></p>
-              <p style={{ color: 'var(--text-primary)' }}>Montant réel : <strong>{statut.cloture.montantReel?.toLocaleString()} FCFA</strong></p>
-              <p style={{ color: 'var(--text-primary)' }}>Écart : <strong style={{ color: statut.cloture.typeEcart === 'MANQUANT' ? '#dc2626' : '#3b82f6' }}>{statut.cloture.ecart?.toLocaleString()} FCFA</strong></p>
+            <div style={{ background: 'var(--bg-card)', padding: '18px 24px', borderRadius: '16px', marginTop: '18px', border: '1px solid var(--border-color)', display: 'inline-block', textAlign: 'left', minWidth: 260 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', color: 'var(--text-primary)' }}><span>Montant théorique</span><strong>{statut.cloture.montantTheorique?.toLocaleString()} FCFA</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', color: 'var(--text-primary)' }}><span>Montant réel</span><strong>{statut.cloture.montantReel?.toLocaleString()} FCFA</strong></div>
+              <div style={{ height: 1, background: 'var(--border-color)', margin: '4px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                <span style={{ color: 'var(--text-primary)' }}>Écart</span>
+                <strong style={{ color: statut.cloture.typeEcart === 'MANQUANT' ? cashColors.red : statut.cloture.typeEcart === 'EXCEDENT' ? cashColors.amber : cashColors.green }}>
+                  {statut.cloture.ecart > 0 ? '+' : ''}{statut.cloture.ecart?.toLocaleString()} FCFA
+                </strong>
+              </div>
             </div>
           )}
         </div>
@@ -559,25 +686,70 @@ function CashClosureComponent({ onCloture }) {
     );
   }
 
+  // ===== Formulaire de clôture =====
+  const montantTheorique = statut?.montantTheorique || 0;
+  const ecartLive = montantReel !== '' ? (parseFloat(montantReel) - montantTheorique) : null;
+  const ecartAbs = ecartLive !== null ? Math.abs(ecartLive) : 0;
+  const gaugePct = montantTheorique > 0 ? Math.min(50, (ecartAbs / montantTheorique) * 100) : 0;
+  const ecartColor = ecartLive === null ? cashColors.gray : ecartAbs < 1 ? cashColors.green : ecartLive > 0 ? cashColors.amber : cashColors.red;
+  const ecartLabel = ecartLive === null ? '' : ecartAbs < 1 ? '✅ Caisse équilibrée' : ecartLive > 0 ? `📈 Excédent de ${ecartAbs.toLocaleString()} FCFA` : `⚠️ Manquant de ${ecartAbs.toLocaleString()} FCFA`;
+
   return (
     <div style={styles.card}>
       <div style={styles.cardTitle}>🔒 Clôture de caisse</div>
-      {message && <div style={{ padding: '12px', borderRadius: '14px', marginBottom: '16px', background: message.type === 'success' ? 'var(--bg-badge-success)' : 'var(--bg-badge-danger)', color: message.type === 'success' ? 'var(--badge-success)' : 'var(--badge-danger)' }}>{message.text}</div>}
-      {statut && (
-        <div style={{ marginBottom: '20px', padding: '14px', background: 'var(--bg-table-row-hover)', borderRadius: '18px', border: '1px solid var(--border-color)' }}>
-          <p style={{ color: 'var(--text-primary)' }}>Montant théorique : <strong>{statut.montantTheorique?.toLocaleString()} FCFA</strong></p>
-          <p style={{ color: 'var(--text-primary)' }}>Ventes du jour : <strong>{statut.nombreVentes || 0}</strong></p>
+
+      {message && (
+        <div style={{ padding: '12px 16px', borderRadius: '14px', marginBottom: '16px', background: message.type === 'success' ? cashColors.green + '15' : cashColors.red + '15', color: message.type === 'success' ? cashColors.green : cashColors.red, fontWeight: 600 }}>
+          {message.text}
         </div>
       )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+        <div style={{ background: cashColors.blue + '10', border: `1px solid ${cashColors.blue}33`, borderRadius: 16, padding: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: cashColors.blue, textTransform: 'uppercase', letterSpacing: '.4px' }}>Montant théorique</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>{montantTheorique.toLocaleString()} <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>FCFA</span></div>
+        </div>
+        <div style={{ background: 'var(--bg-table-row-hover)', border: '1px solid var(--border-color)', borderRadius: 16, padding: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.4px' }}>Ventes du jour</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginTop: 4 }}>{statut?.nombreVentes || 0}</div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit}>
-        <div style={styles.formGroup}><label style={styles.label}>Montant réel en caisse (FCFA)</label><input type="number" style={styles.input} value={montantReel} onChange={e => setMontantReel(e.target.value)} required /></div>
-        <div style={styles.formGroup}><label style={styles.label}>Commentaire (optionnel)</label><input type="text" style={styles.input} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder="Ex: Manque de monnaie" /></div>
-        <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Clôture...' : '🔒 Valider la clôture'}</button>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Montant réel en caisse (FCFA)</label>
+          <input type="number" style={{ ...styles.input, fontSize: 18, fontWeight: 700, padding: '14px 16px' }} value={montantReel} onChange={e => setMontantReel(e.target.value)} required />
+        </div>
+
+        {ecartLive !== null && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: ecartColor }}>{ecartLabel}</span>
+            </div>
+            <div style={{ position: 'relative', height: 8, background: 'var(--bg-table-header)', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, background: 'var(--border-color)' }} />
+              <div style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: ecartLive < 0 ? `${50 - gaugePct}%` : '50%',
+                width: `${gaugePct}%`,
+                background: ecartColor,
+                borderRadius: 4, transition: 'all .3s ease'
+              }} />
+            </div>
+          </div>
+        )}
+
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Commentaire (optionnel)</label>
+          <input type="text" style={styles.input} value={commentaire} onChange={e => setCommentaire(e.target.value)} placeholder="Ex: Manque de monnaie" />
+        </div>
+        <button type="submit" style={{ ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '14px', fontSize: 15 }} disabled={loading}>
+          {loading ? '⏳ Clôture...' : '🔒 Valider la clôture'}
+        </button>
       </form>
     </div>
   );
 }
-
 // ==================== GESTION UTILISATEURS ====================
 function UserManagementComponent() {
   const [users, setUsers] = useState([]);
@@ -669,6 +841,45 @@ function UserManagementComponent() {
     </div>
   );
 }
+// ==================== HELPERS HISTORIQUE (avatar vendeur, stats) ====================
+const HIST_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
+const colorForVendeur = (name = '') => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return HIST_COLORS[Math.abs(hash) % HIST_COLORS.length];
+};
+const initialsForVendeur = (name = '') =>
+  name.split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+
+const VendeurAvatar = ({ nom, size = 34 }) => {
+  const color = colorForVendeur(nom || '');
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.3, background: color + '22', color,
+      border: `1.5px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontWeight: 700, fontSize: size * 0.36, flexShrink: 0,
+    }}>
+      {initialsForVendeur(nom)}
+    </div>
+  );
+};
+
+const HistStatCard = ({ icon, label, value, color }) => (
+  <div style={{
+    flex: 1, minWidth: 160, background: 'var(--bg-card)', border: '1px solid var(--border-color)',
+    borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12,
+    transition: 'background .3s ease, border .3s ease',
+  }}>
+    <div style={{
+      width: 38, height: 38, borderRadius: 10, background: color + '1c', color,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0,
+    }}>{icon}</div>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.4px' }}>{label}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</div>
+    </div>
+  </div>
+);
 
 // ==================== COMPOSANT PRINCIPAL ====================
 function StockManagement() {
@@ -901,30 +1112,126 @@ function StockManagement() {
       <RealTimeNotification onNotification={handleWebsocketNotification} />
 
       {/* ===== SIDEBAR ===== */}
-      <div style={styles.sidebar}>
-        <div style={styles.sidebarHeader}>
-          <div style={styles.sidebarLogoContainer}><img src={logo} alt="Powertech" style={styles.sidebarLogo} /></div>
-        </div>
+<div style={{ ...styles.sidebar, position: 'fixed', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
+  {/* Liseré d'accent en haut */}
+  <div style={{ height: 3, width: '100%', background: 'linear-gradient(90deg, #f97316, #3b82f6, #6366f1)', flexShrink: 0 }} />
 
-        {/* ===== BOUTON THEME ===== */}
-        <div style={{ margin: '0 16px 16px 16px', padding: '12px 16px', background: 'var(--bg-user-card)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={toggleTheme}>
-          <span style={{ color: '#cbd5e1', fontSize: '13px' }}>{theme === 'light' ? '☀️ Mode clair' : '🌙 Mode sombre'}</span>
-          <div style={{ width: '44px', height: '24px', background: theme === 'dark' ? '#3b82f6' : '#64748b', borderRadius: '12px', position: 'relative', transition: '0.3s' }}>
-            <div style={{ width: '18px', height: '18px', background: 'white', borderRadius: '50%', position: 'absolute', top: '3px', left: theme === 'dark' ? '23px' : '3px', transition: '0.3s' }} />
-          </div>
-        </div>
+  <div style={{ padding: '22px 16px 8px 16px', flexShrink: 0 }}>
+    <div style={{
+      background: 'white', borderRadius: 16, padding: '14px 16px', display: 'flex',
+      justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+    }}>
+      <img src={logo} alt="Powertech" style={{ width: '100%', height: 'auto', display: 'block' }} />
+    </div>
+  </div>
 
-        <div style={styles.userCard}>
-          <div style={styles.userName}>{user?.nom}</div>
-          <div style={styles.userRole}>{getRoleLabel()}</div>
-        </div>
-        {menuItems.map(item => (
-          <div key={item.section} onClick={() => setActiveSection(item.section)} style={{ ...styles.navItem, ...(activeSection === item.section ? styles.navItemActive : styles.navItemInactive) }}>
-            <span>{item.icon}</span><span>{item.label}</span>
-          </div>
-        ))}
-        <button onClick={logout} style={styles.logoutBtn}>🚪 Déconnexion</button>
+  {/* ===== TOGGLE THÈME ===== */}
+  <div
+    onClick={toggleTheme}
+    style={{
+      margin: '4px 16px 18px 16px', padding: '11px 16px', background: 'var(--bg-user-card)',
+      borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)', transition: '0.2s', flexShrink: 0,
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{
+        width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: theme === 'dark' ? '#6366f11c' : '#f59e0b1c', fontSize: 13,
+      }}>{theme === 'light' ? '☀️' : '🌙'}</div>
+      <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 600 }}>
+        {theme === 'light' ? 'Mode clair' : 'Mode sombre'}
+      </span>
+    </div>
+    <div style={{ width: 42, height: 23, background: theme === 'dark' ? '#3b82f6' : '#475569', borderRadius: 12, position: 'relative', transition: '0.3s', flexShrink: 0 }}>
+      <div style={{
+        width: 17, height: 17, background: 'white', borderRadius: '50%', position: 'absolute', top: 3,
+        left: theme === 'dark' ? '22px' : '3px', transition: '0.3s',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9,
+      }}>{theme === 'dark' ? '🌙' : '☀️'}</div>
+    </div>
+  </div>
+
+  {/* ===== CARTE UTILISATEUR ===== */}
+  {/* ===== CARTE UTILISATEUR (compacte) ===== */}
+{(() => {
+  const roleColors = { ADMIN: '#8b5cf6', STOCK_MANAGER: '#3b82f6', VENDEUR: '#10b981' };
+  const rc = roleColors[role] || '#94a3b8';
+  const initials = (user?.nom || '').split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+  return (
+    <div style={{
+      margin: '0 16px 18px 16px', padding: '12px 14px', background: 'var(--bg-user-card)',
+      borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12,
+      border: `1px solid ${rc}33`, flexShrink: 0,
+    }}>
+      <div style={{
+        width: 36, height: 36, minWidth: 36, borderRadius: '50%', background: rc + '22', color: rc,
+        border: `1.5px solid ${rc}55`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 14, fontWeight: 800, flexShrink: 0,
+      }}>{initials}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nom}</div>
+        <span style={{
+          display: 'inline-block', marginTop: 3, fontSize: 10.5, fontWeight: 700, color: rc,
+          background: rc + '1c', padding: '2px 10px', borderRadius: 20, border: `1px solid ${rc}44`,
+        }}>{getRoleLabel()}</span>
       </div>
+    </div>
+  );
+})()}
+
+  {/* ===== MENU ===== */}
+  <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+    {(() => {
+      const ITEM_COLORS = {
+        dashboard: '#3b82f6', stocks: '#f59e0b', commandes: '#6366f1', historique: '#14b8a6',
+        cloture: '#10b981', utilisateurs: '#8b5cf6', fournisseurs: '#f97316', panier: '#10b981',
+      };
+      return menuItems.map(item => {
+        const isActive = activeSection === item.section;
+        const c = ITEM_COLORS[item.section] || '#3b82f6';
+        return (
+          <div
+            key={item.section}
+            onClick={() => setActiveSection(item.section)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12,
+              cursor: 'pointer', fontWeight: 600, fontSize: 14, position: 'relative', flexShrink: 0,
+              background: isActive ? `linear-gradient(90deg, ${c}, ${c}cc)` : 'transparent',
+              color: isActive ? 'white' : '#cbd5e1',
+              boxShadow: isActive ? `0 6px 16px ${c}4d` : 'none',
+              transition: 'background .15s ease, color .15s ease',
+            }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+            onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
+          >
+            <div style={{
+              width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 14, flexShrink: 0,
+              background: isActive ? 'rgba(255,255,255,0.2)' : c + '1c',
+            }}>{item.icon}</div>
+            <span>{item.label}</span>
+          </div>
+        );
+      });
+    })()}
+  </div>
+
+  {/* ===== DÉCONNEXION ===== */}
+  <div style={{ marginTop: 'auto', padding: '16px 16px 22px 16px', flexShrink: 0 }}>
+    <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', marginBottom: 14 }} />
+    <button
+      onClick={logout}
+      style={{
+        width: '100%', padding: '12px', background: '#ef44441c', border: '1px solid #ef444444',
+        borderRadius: 14, color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', gap: 10, fontWeight: 700, fontSize: 13.5, transition: '0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#ef444433'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = '#ef44441c'; }}
+    >🚪 Déconnexion</button>
+  </div>
+</div>
 
       {/* ===== MAIN ===== */}
       <div style={styles.main}>
@@ -1537,65 +1844,151 @@ function StockManagement() {
 )}
 
         {activeSection === 'historique' && (
-          <div style={styles.card}>
-            <div style={styles.cardTitle}>📜 Historique des ventes</div>
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px', alignItems: 'flex-end' }}>
-              {[['Date début', 'date', filtreDateDebut, setFiltreDateDebut], ['Date fin', 'date', filtreDateFin, setFiltreDateFin]].map(([lbl, type, val, setter]) => (
-                <div key={lbl} style={{ flex: 1, minWidth: '150px' }}>
-                  <label style={styles.label}>{lbl}</label>
-                  <input type={type} value={val} onChange={e => setter(e.target.value)} style={styles.input} />
-                </div>
-              ))}
-              <div style={{ flex: 1, minWidth: '150px' }}>
-                <label style={styles.label}>Vendeur</label>
-                <select value={filtreVendeur} onChange={e => setFiltreVendeur(e.target.value)} style={styles.input}>
-                  <option value="">Tous</option>
-                  {[...new Set(ventes.map(v => v.vendeur))].map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1, minWidth: '150px' }}>
-                <label style={styles.label}>Produit</label>
-                <select value={filtreProduit} onChange={e => setFiltreProduit(e.target.value)} style={styles.input}>
-                  <option value="">Tous</option>
-                  {[...new Set(ventes.map(v => v.produit?.nom).filter(Boolean))].map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-              <button onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }} style={{ ...styles.btnSecondary, height: '42px', padding: '0 20px' }}></button>
-              <button onClick={exportPDF} style={{ ...styles.btnPrimary, height: '42px', padding: '0 20px', background: '#dc2626' }}>📄 Export PDF</button>
-            </div>
+    {/* ===== STATS DE LA PÉRIODE FILTRÉE ===== */}
+    {(() => {
+      const caFiltre = groupedVentes.reduce((s, g) => s + g.total, 0);
+      const panierMoyen = groupedVentes.length ? Math.round(caFiltre / groupedVentes.length) : 0;
+      const parVendeur = new Map();
+      groupedVentes.forEach(g => parVendeur.set(g.vendeur, (parVendeur.get(g.vendeur) || 0) + g.total));
+      const topVendeur = [...parVendeur.entries()].sort((a, b) => b[1] - a[1])[0];
+      return (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <HistStatCard icon="🧾" label="Transactions" value={groupedVentes.length} color="#3b82f6" />
+          <HistStatCard icon="💰" label="Chiffre d'affaires" value={`${caFiltre.toLocaleString('fr-FR')} FCFA`} color="#10b981" />
+          <HistStatCard icon="🎯" label="Panier moyen" value={`${panierMoyen.toLocaleString('fr-FR')} FCFA`} color="#6366f1" />
+          <HistStatCard icon="🏆" label="Top vendeur" value={topVendeur ? topVendeur[0] : '—'} color="#f59e0b" />
+        </div>
+      );
+    })()}
 
-            {ventes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune vente</div>
-            ) : groupedVentes.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucune vente correspondant aux filtres</div>
-            ) : (
-              groupedVentes.map((group, idx) => (
-                <div key={idx} style={{ marginBottom: '28px', border: '1px solid var(--border-color)', borderRadius: '20px', overflow: 'hidden' }}>
-                  <div style={{ background: 'var(--bg-table-header)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                    <div style={{ color: 'var(--text-primary)' }}><strong>🧾 {group.factureId ? `Facture #${group.factureId}` : 'Transaction'}</strong> - {new Date(group.date).toLocaleString()}</div>
-                    <div style={{ color: 'var(--text-primary)' }}><strong>Total : {group.total.toLocaleString()} FCFA</strong></div>
-                    <button onClick={() => imprimerTicketGroupe(group.ventes, group.total, group.vendeur)} style={{ ...styles.btnPrimary, padding: '6px 16px', fontSize: '13px' }}>🖨️ Imprimer</button>
+    {/* ===== FILTRES ===== */}
+    <div style={styles.card}>
+      <div style={styles.cardTitle}>📜 Historique des ventes</div>
+
+      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: 16, marginBottom: 4, alignItems: 'flex-end' }}>
+        <div style={{ minWidth: '160px' }}>
+          <label style={styles.label}>Date début</label>
+          <input type="date" value={filtreDateDebut} onChange={e => setFiltreDateDebut(e.target.value)} style={{ ...styles.input, borderRadius: 12 }} />
+        </div>
+        <div style={{ minWidth: '160px' }}>
+          <label style={styles.label}>Date fin</label>
+          <input type="date" value={filtreDateFin} onChange={e => setFiltreDateFin(e.target.value)} style={{ ...styles.input, borderRadius: 12 }} />
+        </div>
+        <div style={{ minWidth: '170px' }}>
+          <label style={styles.label}>Vendeur</label>
+          <select value={filtreVendeur} onChange={e => setFiltreVendeur(e.target.value)} style={{ ...styles.input, borderRadius: 12 }}>
+            <option value="">Tous</option>
+            {[...new Set(ventes.map(v => v.vendeur))].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
+        <div style={{ minWidth: '170px' }}>
+          <label style={styles.label}>Produit</label>
+          <select value={filtreProduit} onChange={e => setFiltreProduit(e.target.value)} style={{ ...styles.input, borderRadius: 12 }}>
+            <option value="">Tous</option>
+            {[...new Set(ventes.map(v => v.produit?.nom).filter(Boolean))].map(p => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }}
+          style={{ ...styles.btnSecondary, height: '42px', padding: '0 18px', borderRadius: 30 }}
+        >✖ Réinitialiser</button>
+        <button onClick={exportPDF} style={{ ...styles.btnPrimary, height: '42px', background: '#dc2626', marginLeft: 'auto' }}>📄 Export PDF</button>
+      </div>
+    </div>
+
+    {/* ===== TIMELINE DES TRANSACTIONS ===== */}
+    {ventes.length === 0 ? (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>🧾</div>
+        Aucune vente enregistrée pour le moment
+      </div>
+    ) : groupedVentes.length === 0 ? (
+      <div style={{ ...styles.card, textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>🔍</div>
+        Aucune vente ne correspond à ces filtres
+      </div>
+    ) : (
+      <div style={{ position: 'relative', paddingLeft: 8 }}>
+        {groupedVentes.map((group, idx) => {
+          const vendeurColor = colorForVendeur(group.vendeur || '');
+          const isLast = idx === groupedVentes.length - 1;
+          return (
+            <div key={idx} style={{ position: 'relative', display: 'flex', gap: 18 }}>
+              {/* Timeline rail */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 14 }}>
+                <div style={{
+                  width: 12, height: 12, borderRadius: '50%', background: vendeurColor,
+                  border: '3px solid var(--bg-primary)', boxShadow: `0 0 0 2px ${vendeurColor}55`,
+                  marginTop: 22, flexShrink: 0,
+                }} />
+                {!isLast && <div style={{ flex: 1, width: 2, background: 'var(--border-color)', marginTop: 4 }} />}
+              </div>
+
+              {/* Carte transaction */}
+              <div style={{
+                ...styles.card, flex: 1, marginBottom: '20px', padding: 0, overflow: 'hidden',
+              }}>
+                <div style={{
+                  padding: '16px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  flexWrap: 'wrap', gap: 12, borderBottom: '1px solid var(--border-color)',
+                  background: 'var(--bg-table-row-hover)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <VendeurAvatar nom={group.vendeur} />
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: 14 }}>
+                        {group.factureId ? `Facture #${group.factureId}` : 'Transaction'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        {group.vendeur} · {new Date(group.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
                   </div>
-                  <table style={styles.table}>
-                    <thead><tr><th style={styles.th}>Produit</th><th style={styles.th}>Qté</th><th style={styles.th}>Prix unitaire</th><th style={styles.th}>Total</th><th style={styles.th}>Vendeur</th></tr></thead>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: 'var(--text-primary)' }}>
+                      {group.total.toLocaleString('fr-FR')} <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>FCFA</span>
+                    </div>
+                    <button
+                      onClick={() => imprimerTicketGroupe(group.ventes, group.total, group.vendeur)}
+                      style={{ ...styles.btnPrimary, padding: '7px 16px', fontSize: 12, height: 'auto' }}
+                    >🖨️ Imprimer</button>
+                  </div>
+                </div>
+
+                <div style={{ padding: '4px 22px 12px 22px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        {['Produit', 'Qté', 'Prix unitaire', 'Total'].map((h, i) => (
+                          <th key={h} style={{
+                            fontSize: 11, textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700,
+                            color: 'var(--text-muted)', textAlign: i > 0 ? 'right' : 'left', padding: '10px 6px',
+                          }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
                     <tbody>
                       {group.ventes.map(v => (
                         <tr key={v.id}>
-                          <td style={styles.td}>{v.produit?.nom}</td>
-                          <td style={styles.td}>{v.quantite}</td>
-                          <td style={styles.td}>{v.prixUnitaire?.toLocaleString()} FCFA</td>
-                          <td style={styles.td}>{(v.prixUnitaire * v.quantite).toLocaleString()} FCFA</td>
-                          <td style={styles.td}>{v.vendeur}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 13, color: 'var(--text-primary)', borderTop: '1px dashed var(--border-color)' }}>{v.produit?.nom}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 13, textAlign: 'right', color: 'var(--text-secondary)', borderTop: '1px dashed var(--border-color)' }}>{v.quantite}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 13, textAlign: 'right', color: 'var(--text-secondary)', fontFamily: 'monospace', borderTop: '1px dashed var(--border-color)' }}>{v.prixUnitaire?.toLocaleString('fr-FR')}</td>
+                          <td style={{ padding: '8px 6px', fontSize: 13, textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'monospace', borderTop: '1px dashed var(--border-color)' }}>{(v.prixUnitaire * v.quantite).toLocaleString('fr-FR')}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              ))
-            )}
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+)}
 
         {activeSection === 'panier'       && <CartComponent produits={produits} user={user} onSaleComplete={() => setRefresh(prev => prev + 1)} />}
         {activeSection === 'cloture'      && <CashClosureComponent onCloture={() => setRefresh(prev => prev + 1)} />}
