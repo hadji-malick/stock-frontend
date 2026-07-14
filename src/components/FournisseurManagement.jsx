@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { validate, required, email, phone } from '../utils/validators';
 
 const SUPP_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
 const colorForName = (name = '') => {
@@ -41,6 +42,20 @@ const StatCard = ({ icon, label, value, color }) => (
   </div>
 );
 
+const FieldError = ({ message }) =>
+  message ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+      <span>⚠️</span>{message}
+    </div>
+  ) : null;
+
+// Règles de validation du formulaire fournisseur
+const fournisseurRules = {
+  nom: [required('Le nom')],
+  email: [email("L'email")],
+  telephone: [phone('Le téléphone')],
+};
+
 export default function FournisseurManagement() {
   const [fournisseurs, setFournisseurs] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -51,6 +66,7 @@ export default function FournisseurManagement() {
   const [formData, setFormData] = useState({
     nom: '', contact: '', telephone: '', email: '', adresse: ''
   });
+  const [errors, setErrors] = useState({});
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
@@ -68,8 +84,19 @@ export default function FournisseurManagement() {
     }
   };
 
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: undefined }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const fieldErrors = validate(formData, fournisseurRules);
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      toast.error('Veuillez corriger les champs en erreur');
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -77,6 +104,7 @@ export default function FournisseurManagement() {
       toast.success('✅ Fournisseur ajouté avec succès');
       setShowModal(false);
       setFormData({ nom: '', contact: '', telephone: '', email: '', adresse: '' });
+      setErrors({});
       fetchFournisseurs();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de l\'ajout');
@@ -85,6 +113,12 @@ export default function FournisseurManagement() {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
+    const fieldErrors = validate(formData, fournisseurRules);
+    if (Object.keys(fieldErrors).length > 0) {
+      setErrors(fieldErrors);
+      toast.error('Veuillez corriger les champs en erreur');
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -93,6 +127,7 @@ export default function FournisseurManagement() {
       setShowEditModal(false);
       setEditingFournisseur(null);
       setFormData({ nom: '', contact: '', telephone: '', email: '', adresse: '' });
+      setErrors({});
       fetchFournisseurs();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Erreur lors de la modification');
@@ -118,6 +153,7 @@ export default function FournisseurManagement() {
       nom: fournisseur.nom, contact: fournisseur.contact || '', telephone: fournisseur.telephone || '',
       email: fournisseur.email || '', adresse: fournisseur.adresse || ''
     });
+    setErrors({});
     setShowEditModal(true);
   };
 
@@ -141,6 +177,12 @@ export default function FournisseurManagement() {
     paginationButton: { padding: '8px 16px', borderRadius: '30px', border: 'none', cursor: 'pointer', fontWeight: '500', transition: 'background 0.3s ease, opacity 0.3s ease' },
     paginationText: { padding: '8px 16px', background: 'var(--bg-table-header)', borderRadius: '30px', fontSize: '14px', fontWeight: '500', color: 'var(--text-secondary)', transition: 'background 0.3s ease, color 0.3s ease' }
   };
+
+  const errInput = (field) => ({
+    ...styles.input,
+    border: errors[field] ? '1.5px solid #ef4444' : styles.input.border,
+    background: errors[field] ? '#ef44440a' : styles.input.background,
+  });
 
   const stats = useMemo(() => {
     const avecEmail = fournisseurs.filter(f => f.email).length;
@@ -169,9 +211,42 @@ export default function FournisseurManagement() {
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
+  const FournisseurForm = ({ onSubmit, submitLabel, onCancel }) => (
+    <form onSubmit={onSubmit}>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Nom *</label>
+        <input type="text" style={errInput('nom')} value={formData.nom} onChange={e => updateField('nom', e.target.value)} placeholder="Nom du fournisseur" />
+        <FieldError message={errors.nom} />
+      </div>
+      <div style={styles.grid2}>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Contact</label>
+          <input type="text" style={styles.input} value={formData.contact} onChange={e => updateField('contact', e.target.value)} placeholder="Nom du contact" />
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Téléphone</label>
+          <input type="text" style={errInput('telephone')} value={formData.telephone} onChange={e => updateField('telephone', e.target.value)} placeholder="+221 77 123 45 67" />
+          <FieldError message={errors.telephone} />
+        </div>
+      </div>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Email</label>
+        <input type="text" style={errInput('email')} value={formData.email} onChange={e => updateField('email', e.target.value)} placeholder="email@fournisseur.com" />
+        <FieldError message={errors.email} />
+      </div>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Adresse</label>
+        <input type="text" style={styles.input} value={formData.adresse} onChange={e => updateField('adresse', e.target.value)} placeholder="Adresse du fournisseur" />
+      </div>
+      <div style={styles.gap2}>
+        <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Enregistrement...' : submitLabel}</button>
+        <button type="button" onClick={onCancel} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+      </div>
+    </form>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* ===== STATS ===== */}
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
         <StatCard icon="🏭" label="Fournisseurs" value={stats.total} color="#3b82f6" />
         <StatCard icon="📧" label="Avec email" value={stats.avecEmail} color="#6366f1" />
@@ -179,7 +254,6 @@ export default function FournisseurManagement() {
       </div>
 
       <div style={styles.card}>
-        {/* ===== HEADER / RECHERCHE ===== */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={styles.cardTitle}>🏭 Gestion des fournisseurs</div>
@@ -196,11 +270,11 @@ export default function FournisseurManagement() {
           </div>
           <button style={styles.btnPrimary} onClick={() => {
             setFormData({ nom: '', contact: '', telephone: '', email: '', adresse: '' });
+            setErrors({});
             setShowModal(true);
           }}>➕ Nouveau fournisseur</button>
         </div>
 
-        {/* ===== TABLEAU ===== */}
         <div style={{ overflowX: 'auto', borderRadius: 16, border: '1px solid var(--border-color)' }}>
           <table style={styles.table}>
             <thead>
@@ -269,7 +343,6 @@ export default function FournisseurManagement() {
           </table>
         </div>
 
-        {/* ===== PAGINATION ===== */}
         {totalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
             <button
@@ -287,7 +360,6 @@ export default function FournisseurManagement() {
         )}
       </div>
 
-      {/* ===== MODAL AJOUT ===== */}
       {showModal && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
@@ -295,39 +367,11 @@ export default function FournisseurManagement() {
               <h3 style={{ color: 'var(--text-primary)' }}>➕ Nouveau fournisseur</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nom *</label>
-                <input type="text" style={styles.input} value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })} required placeholder="Nom du fournisseur" />
-              </div>
-              <div style={styles.grid2}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Contact</label>
-                  <input type="text" style={styles.input} value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} placeholder="Nom du contact" />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Téléphone</label>
-                  <input type="text" style={styles.input} value={formData.telephone} onChange={e => setFormData({ ...formData, telephone: e.target.value })} placeholder="Numéro de téléphone" />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Email</label>
-                <input type="email" style={styles.input} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="email@fournisseur.com" />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Adresse</label>
-                <input type="text" style={styles.input} value={formData.adresse} onChange={e => setFormData({ ...formData, adresse: e.target.value })} placeholder="Adresse du fournisseur" />
-              </div>
-              <div style={styles.gap2}>
-                <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Ajout...' : '✅ Ajouter'}</button>
-                <button type="button" onClick={() => setShowModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
-              </div>
-            </form>
+            <FournisseurForm onSubmit={handleSubmit} submitLabel="✅ Ajouter" onCancel={() => setShowModal(false)} />
           </div>
         </div>
       )}
 
-      {/* ===== MODAL MODIFICATION ===== */}
       {showEditModal && editingFournisseur && (
         <div style={styles.modal}>
           <div style={styles.modalContent}>
@@ -335,34 +379,7 @@ export default function FournisseurManagement() {
               <h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le fournisseur</h3>
               <button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
-            <form onSubmit={handleUpdate}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nom *</label>
-                <input type="text" style={styles.input} value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })} required placeholder="Nom du fournisseur" />
-              </div>
-              <div style={styles.grid2}>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Contact</label>
-                  <input type="text" style={styles.input} value={formData.contact} onChange={e => setFormData({ ...formData, contact: e.target.value })} placeholder="Nom du contact" />
-                </div>
-                <div style={styles.formGroup}>
-                  <label style={styles.label}>Téléphone</label>
-                  <input type="text" style={styles.input} value={formData.telephone} onChange={e => setFormData({ ...formData, telephone: e.target.value })} placeholder="Numéro de téléphone" />
-                </div>
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Email</label>
-                <input type="email" style={styles.input} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="email@fournisseur.com" />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Adresse</label>
-                <input type="text" style={styles.input} value={formData.adresse} onChange={e => setFormData({ ...formData, adresse: e.target.value })} placeholder="Adresse du fournisseur" />
-              </div>
-              <div style={styles.gap2}>
-                <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Modification...' : '✅ Enregistrer'}</button>
-                <button type="button" onClick={() => setShowEditModal(false)} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
-              </div>
-            </form>
+            <FournisseurForm onSubmit={handleUpdate} submitLabel="✅ Enregistrer" onCancel={() => setShowEditModal(false)} />
           </div>
         </div>
       )}

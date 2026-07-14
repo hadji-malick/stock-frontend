@@ -25,6 +25,10 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import CommandeDevis from './pages/CommandeDevis';
 import CommandeRejeterDemande from './pages/CommandeRejeterDemande';
 import ConfirmerDateExpedition from './pages/ConfirmerDateExpedition';
+import { validate, required, emailRequired, minLength, positiveNumber, positiveInteger } from './utils/validators';
+import factureHeader from './assets/facture-header.png';
+import factureFooter from './assets/facture-footer.png';
+
 
 // ==================== HELPER DATE — clé stable YYYY-MM-DD ====================
 // Remplace toLocaleDateString('fr-FR') qui est fragile (fuseau horaire, locale du navigateur).
@@ -59,7 +63,7 @@ const styles = {
     position: 'fixed',
     height: '100%',
     overflowY: 'auto',
-    boxShadow: '4px 0 20px rgba(0,0,0,0.08)'
+    boxShadow: '4px 0 20px rgba(247, 242, 242, 0.08)'
   },
   sidebarHeader: {
     background: 'var(--bg-sidebar-header)',
@@ -400,12 +404,35 @@ function CartComponent({ produits, user, onSaleComplete }) {
     } finally { setLoading(false); }
   };
 
-  const imprimerTicketSilencieux = (data) => {
-    const ticketHtml = `<!DOCTYPE html><html><head><title>Ticket Powertech</title><style>body{font-family:monospace;padding:20px;margin:0}.ticket{max-width:300px;margin:auto;border:1px solid #ccc;padding:20px;border-radius:12px;text-align:center}.logo{width:80px;margin-bottom:10px}.header{font-size:18px;font-weight:bold}.sub{font-size:10px;color:#666;margin-bottom:15px}.row{display:flex;justify-content:space-between;margin:6px 0}.total{font-weight:bold;border-top:1px dashed #aaa;padding-top:8px;margin-top:8px}.footer{margin-top:15px;font-size:10px}@media print{body{margin:0;padding:0}.ticket{border:none;padding:10px}}</style></head><body><div class="ticket"><img src="${logo}" class="logo" alt="Powertech"/><div class="header">POWERTECH</div><div class="sub">ENGINEERING GROUP</div><div>Facture: ${data.numeroFacture}</div><div>${new Date().toLocaleString()}</div><div>Vendeur: ${user?.nom}</div><hr/>${data.details.map(d => `<div class="row"><span>${d.produit} x ${d.quantite}</span><span>${d.sousTotal.toLocaleString()} FCFA</span></div>`).join('')}<div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString()} FCFA</span></div><div class="footer">Merci de votre visite !<br/>Dakar, Sénégal</div></div><script>window.onload=function(){window.print();setTimeout(()=>window.close(),1000)}<\/script></body></html>`;
-    const win = window.open('', '_blank', 'width=400,height=300,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
-    win.document.write(ticketHtml);
-    win.document.close();
-  };
+   const imprimerTicketSilencieux = (data) => {
+  const ticketHtml = `<!DOCTYPE html><html><head><title>Ticket Powertech</title><style>
+    body{font-family:Arial;padding:0;margin:0}
+    .ticket{max-width:380px;margin:auto;border:1px solid #ccc;border-radius:12px;overflow:hidden}
+    .hdr{width:100%;display:block}
+    .ftr{width:100%;display:block}
+    .body{padding:20px;text-align:center}
+    .row{display:flex;justify-content:space-between;margin:6px 0}
+    .total{font-weight:bold;border-top:1px dashed #aaa;padding-top:8px;margin-top:8px}
+    @media print{body{margin:0;padding:0}.ticket{border:none}}
+  </style></head><body>
+  <div class="ticket">
+    <img src="${factureHeader}" class="hdr"/>
+    <div class="body">
+      <div>Facture: ${data.numeroFacture}</div>
+      <div>${new Date().toLocaleString()}</div>
+      <div>Vendeur: ${user?.nom}</div>
+      <hr/>
+      ${data.details.map(d => `<div class="row"><span>${d.produit} x ${d.quantite}</span><span>${d.sousTotal.toLocaleString()} FCFA</span></div>`).join('')}
+      <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString()} FCFA</span></div>
+    </div>
+    <img src="${factureFooter}" class="ftr"/>
+  </div>
+  <script>window.onload=function(){window.print();setTimeout(()=>window.close(),1000)}<\/script>
+  </body></html>`;
+  const win = window.open('', '_blank', 'width=450,height=600,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+  win.document.write(ticketHtml);
+  win.document.close();
+};
 
   const posColors = { blue: '#3b82f6', green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
   const avatarColors = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -750,6 +777,133 @@ function CashClosureComponent({ onCloture }) {
     </div>
   );
 }
+// ==================== COMPOSANT FORMULAIRE SEPARÉ ====================
+function UserForm({ 
+  initialData, 
+  initialErrors, 
+  onSubmit, 
+  submitLabel, 
+  onCancel,
+  updateParentData,
+  updateParentErrors
+}) {
+  // État local pour le formulaire
+  const [localData, setLocalData] = useState(initialData);
+  const [localErrors, setLocalErrors] = useState(initialErrors);
+
+  // Mettre à jour quand les props changent (ouverture du modal)
+  useEffect(() => {
+    setLocalData(initialData);
+    setLocalErrors(initialErrors);
+  }, [initialData, initialErrors]);
+
+  // Gestionnaire de changement
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    // Mettre à jour l'état local
+    setLocalData(prev => ({ ...prev, [name]: value }));
+    
+    // Mettre à jour le parent
+    if (updateParentData) {
+      updateParentData(name, value);
+    }
+    
+    // Effacer l'erreur du champ
+    if (localErrors[name]) {
+      const newErrors = { ...localErrors, [name]: undefined };
+      setLocalErrors(newErrors);
+      if (updateParentErrors) {
+        updateParentErrors(newErrors);
+      }
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(e, localData);
+  };
+
+  const errInput = (field) => ({
+    ...styles.input,
+    border: localErrors[field] ? '1.5px solid #ef4444' : styles.input.border,
+    background: localErrors[field] ? '#ef44440a' : styles.input.background,
+  });
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Nom *</label>
+        <input 
+          type="text"
+          name="nom"
+          style={errInput('nom')} 
+          value={localData.nom} 
+          onChange={handleChange}
+          placeholder="Jean Dupont"
+          autoFocus
+        />
+        {localErrors.nom && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.nom}</div>}
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Email *</label>
+        <input 
+          type="email" 
+          name="email"
+          style={errInput('email')} 
+          value={localData.email} 
+          onChange={handleChange}
+          placeholder="nom@gmail.com" 
+        />
+        {localErrors.email && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.email}</div>}
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>
+          Mot de passe {submitLabel === 'Enregistrer' ? '(laisser vide pour ne pas changer)' : '*'}
+        </label>
+        <input 
+          type="password" 
+          name="motDePasse"
+          style={errInput('motDePasse')} 
+          value={localData.motDePasse} 
+          onChange={handleChange}
+          placeholder={submitLabel === 'Enregistrer' ? 'Laisser vide pour ne pas changer' : '••••••••'}
+        />
+        {localErrors.motDePasse && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.motDePasse}</div>}
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Rôle *</label>
+        <select 
+          name="role"
+          style={styles.input} 
+          value={localData.role} 
+          onChange={handleChange}
+        >
+          <option value="VENDEUR">🛒 Vendeur</option>
+          <option value="STOCK_MANAGER">📦 Gestionnaire</option>
+          <option value="ADMIN">👑 Administrateur</option>
+        </select>
+      </div>
+
+      <div style={styles.gap2}>
+        <button type="submit" style={styles.btnPrimary}>
+          {submitLabel === 'Créer' ? '✅ Créer' : '✅ Enregistrer'}
+        </button>
+        <button 
+          type="button" 
+          onClick={onCancel} 
+          style={{ ...styles.btnPrimary, background: '#94a3b8' }}
+        >
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ==================== GESTION UTILISATEURS ====================
 function UserManagementComponent() {
   const [users, setUsers] = useState([]);
@@ -757,87 +911,332 @@ function UserManagementComponent() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' });
+  const [errors, setErrors] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => { fetchUsers(); }, []);
 
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8080/api/auth/utilisateurs', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get('http://localhost:8080/api/auth/utilisateurs', { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
       setUsers(res.data);
     } catch (err) { console.error(err); }
   };
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post('http://localhost:8080/api/auth/register', formData, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Utilisateur créé'); fetchUsers(); setShowModal(false);
-      setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' });
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+  // ===== Fonctions de validation =====
+  const required = (field) => (value) => !value ? `${field} est requis` : undefined;
+  const emailRequired = (field) => (value) => {
+    if (!value) return `${field} est requis`;
+    return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? 'Email invalide' : undefined;
+  };
+  const minLength = (min, field) => (value) => {
+    if (!value) return undefined;
+    return value.length < min ? `${field} doit faire au moins ${min} caractères` : undefined;
   };
 
-  const handleUpdate = async (e) => {
+  const validate = (data, rules) => {
+    const errors = {};
+    for (const [field, fieldRules] of Object.entries(rules)) {
+      for (const rule of fieldRules) {
+        const error = rule(data[field]);
+        if (error) { errors[field] = error; break; }
+      }
+    }
+    return errors;
+  };
+
+  const getRules = (isEdit) => ({
+    nom: [required('Le nom')],
+    email: [emailRequired("L'email")],
+    motDePasse: isEdit ? [] : [required('Le mot de passe'), minLength(6, 'Le mot de passe')],
+  });
+
+  // ===== Gestionnaire de mise à jour des champs =====
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const updateErrors = (newErrors) => {
+    setErrors(newErrors);
+  };
+
+  // ===== CRUD =====
+  const handleCreate = async (e, data) => {
     e.preventDefault();
+    setLoading(true);
+    
+    const fieldErrors = validate(data, getRules(false));
+    if (Object.keys(fieldErrors).length > 0) { 
+      setErrors(fieldErrors); 
+      toast.error('Veuillez corriger les champs en erreur'); 
+      setLoading(false);
+      return; 
+    }
+    
     try {
       const token = localStorage.getItem('token');
-      const updateData = { nom: formData.nom, email: formData.email, role: formData.role };
-      if (formData.motDePasse.trim()) updateData.motDePasse = formData.motDePasse;
-      await axios.put(`http://localhost:8080/api/auth/utilisateurs/${editingUser.id}`, updateData, { headers: { Authorization: `Bearer ${token}` } });
-      toast.success('Utilisateur modifié'); fetchUsers(); setShowEditModal(false);
-      setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' });
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+      await axios.post('http://localhost:8080/api/auth/register', data, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      toast.success('✅ Utilisateur créé avec succès');
+      fetchUsers(); 
+      setShowModal(false);
+      setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); 
+      setErrors({});
+    } catch (err) { 
+      toast.error(err.response?.data?.error || 'Erreur'); 
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async (e, data) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    const rules = getRules(true);
+    if (data.motDePasse.trim()) rules.motDePasse = [minLength(6, 'Le mot de passe')];
+    const fieldErrors = validate(data, rules);
+    if (Object.keys(fieldErrors).length > 0) { 
+      setErrors(fieldErrors); 
+      toast.error('Veuillez corriger les champs en erreur'); 
+      setLoading(false);
+      return; 
+    }
+    
+    try {
+      const token = localStorage.getItem('token');
+      const updateData = { nom: data.nom, email: data.email, role: data.role };
+      if (data.motDePasse.trim()) updateData.motDePasse = data.motDePasse;
+      await axios.put(`http://localhost:8080/api/auth/utilisateurs/${editingUser.id}`, updateData, { 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      toast.success('✅ Utilisateur modifié avec succès');
+      fetchUsers(); 
+      setShowEditModal(false);
+      setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); 
+      setErrors({});
+    } catch (err) { 
+      toast.error(err.response?.data?.error || 'Erreur'); 
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteUser = async (id) => {
     if (window.confirm('Supprimer cet utilisateur ?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:8080/api/auth/utilisateurs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-        toast.success('Utilisateur supprimé'); fetchUsers();
-      } catch (err) { toast.error('Erreur'); }
+        await axios.delete(`http://localhost:8080/api/auth/utilisateurs/${id}`, { 
+          headers: { Authorization: `Bearer ${token}` } 
+        });
+        toast.success('🗑️ Utilisateur supprimé'); 
+        fetchUsers();
+      } catch (err) { 
+        toast.error('Erreur'); 
+      }
     }
   };
 
-  const openEdit = (user) => { setEditingUser(user); setFormData({ nom: user.nom, email: user.email, motDePasse: '', role: user.role }); setShowEditModal(true); };
-
-  const getRoleBadge = (role) => {
-    if (role === 'ADMIN') return { label: 'Admin', color: '#8b5cf6', bg: '#f3e8ff' };
-    if (role === 'STOCK_MANAGER') return { label: 'Gestionnaire', color: '#3b82f6', bg: '#eff6ff' };
-    return { label: 'Vendeur', color: '#10b981', bg: '#ecfdf5' };
+  const openEdit = (user) => { 
+    setEditingUser(user); 
+    setFormData({ nom: user.nom, email: user.email, motDePasse: '', role: user.role }); 
+    setErrors({}); 
+    setShowEditModal(true); 
   };
 
-  const UserForm = ({ onSubmit, submitLabel }) => (
-    <form onSubmit={onSubmit}>
-      <div style={styles.formGroup}><label style={styles.label}>Nom</label><input style={styles.input} value={formData.nom} onChange={e => setFormData({ ...formData, nom: e.target.value })} required /></div>
-      <div style={styles.formGroup}><label style={styles.label}>Email</label><input type="email" style={styles.input} value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} required /></div>
-      <div style={styles.formGroup}><label style={styles.label}>Mot de passe{submitLabel === 'Enregistrer' ? ' (laisser vide pour ne pas changer)' : ''}</label><input type="password" style={styles.input} value={formData.motDePasse} onChange={e => setFormData({ ...formData, motDePasse: e.target.value })} required={submitLabel !== 'Enregistrer'} /></div>
-      <div style={styles.formGroup}><label style={styles.label}>Rôle</label><select style={styles.input} value={formData.role} onChange={e => setFormData({ ...formData, role: e.target.value })}><option value="VENDEUR">Vendeur</option><option value="STOCK_MANAGER">Gestionnaire</option><option value="ADMIN">Administrateur</option></select></div>
-      <div style={styles.gap2}><button type="submit" style={styles.btnPrimary}>{submitLabel}</button><button type="button" onClick={() => { setShowModal(false); setShowEditModal(false); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button></div>
-    </form>
+  const getRoleBadge = (role) => {
+    if (role === 'ADMIN') return { label: '👑 Admin', color: '#8b5cf6', bg: '#f3e8ff' };
+    if (role === 'STOCK_MANAGER') return { label: '📦 Gestionnaire', color: '#3b82f6', bg: '#eff6ff' };
+    return { label: '🛒 Vendeur', color: '#10b981', bg: '#ecfdf5' };
+  };
+
+  // ===== FILTRE ET PAGINATION =====
+  const filteredUsers = users.filter(u =>
+    u.nom?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
   );
 
   return (
     <div style={styles.card}>
-      <div style={styles.flexBetween}><div style={styles.cardTitle}>👥 Utilisateurs</div><button style={styles.btnPrimary} onClick={() => { setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); setShowModal(true); }}>➕ Nouveau</button></div>
+      <div style={styles.flexBetween}>
+        <div style={styles.cardTitle}>👥 Utilisateurs</div>
+        <button 
+          style={styles.btnPrimary} 
+          onClick={() => { 
+            setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); 
+            setErrors({}); 
+            setShowModal(true); 
+          }}
+        >
+          ➕ Nouveau
+        </button>
+      </div>
+
+      {/* ===== BARRE DE RECHERCHE ===== */}
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          type="text"
+          placeholder="🔍 Rechercher par nom ou email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          style={{ ...styles.input, maxWidth: '400px', borderRadius: '40px' }}
+        />
+        <span style={{ marginLeft: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+          {users.length} utilisateur{users.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* ===== TABLEAU ===== */}
       <table style={styles.table}>
-        <thead><tr><th style={styles.th}>Nom</th><th style={styles.th}>Email</th><th style={styles.th}>Rôle</th><th style={styles.th}>Actions</th></tr></thead>
+        <thead>
+          <tr>
+            <th style={styles.th}>Nom</th>
+            <th style={styles.th}>Email</th>
+            <th style={styles.th}>Rôle</th>
+            <th style={styles.th}>Actions</th>
+          </tr>
+        </thead>
         <tbody>
-          {users.map(u => { const badge = getRoleBadge(u.role); return (
-            <tr key={u.id}>
-              <td style={styles.td}>{u.nom}</td><td style={styles.td}>{u.email}</td>
-              <td style={styles.td}><span style={{ background: badge.bg, color: badge.color, padding: '4px 14px', borderRadius: '40px', fontSize: '12px', fontWeight: '600' }}>{badge.label}</span></td>
-              <td style={styles.td}>
-                <button style={{ ...styles.btnPrimary, padding: '6px 12px', marginRight: '8px', fontSize: '12px' }} onClick={() => openEdit(u)}>✏️ Modifier</button>
-                <button style={styles.btnDanger} onClick={() => deleteUser(u.id)}>🗑️ Supprimer</button>
+          {paginatedUsers.length === 0 ? (
+            <tr>
+              <td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                {searchTerm ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur enregistré'}
               </td>
             </tr>
-          ); })}
+          ) : (
+            paginatedUsers.map(u => { 
+              const badge = getRoleBadge(u.role); 
+              return (
+                <tr key={u.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                  <td style={styles.td}><strong>{u.nom}</strong></td>
+                  <td style={styles.td}>{u.email}</td>
+                  <td style={styles.td}>
+                    <span style={{ 
+                      background: badge.bg, 
+                      color: badge.color, 
+                      padding: '4px 14px', 
+                      borderRadius: '40px', 
+                      fontSize: '12px', 
+                      fontWeight: '600' 
+                    }}>
+                      {badge.label}
+                    </span>
+                  </td>
+                  <td style={styles.td}>
+                    <button 
+                      style={{ ...styles.btnPrimary, padding: '6px 12px', marginRight: '8px', fontSize: '12px' }} 
+                      onClick={() => openEdit(u)}
+                    >
+                      ✏️ Modifier
+                    </button>
+                    <button 
+                      style={styles.btnDanger} 
+                      onClick={() => deleteUser(u.id)}
+                    >
+                      🗑️ Supprimer
+                    </button>
+                  </td>
+                </tr>
+              );
+            })
+          )}
         </tbody>
       </table>
-      {showModal && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>Nouvel utilisateur</h3><button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleCreate} submitLabel="Créer" /></div></div>)}
-      {showEditModal && editingUser && (<div style={styles.modal}><div style={styles.modalContent}><div style={styles.flexBetween}><h3 style={{ color: 'var(--text-primary)' }}>Modifier l'utilisateur</h3><button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px' }}>✖️</button></div><UserForm onSubmit={handleUpdate} submitLabel="Enregistrer" /></div></div>)}
+
+      {/* ===== PAGINATION ===== */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '16px' }}>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            style={{ 
+              padding: '8px 16px', 
+              borderRadius: '30px', 
+              background: currentPage === 1 ? '#e2e8f0' : '#f1f5f9',
+              border: 'none', 
+              cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+              opacity: currentPage === 1 ? 0.5 : 1
+            }}
+          >
+            ◀ Précédent
+          </button>
+          <span style={{ padding: '8px 16px', background: '#f1f5f9', borderRadius: '30px' }}>
+            Page {currentPage} / {totalPages}
+          </span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            style={{ 
+              padding: '8px 16px', 
+              borderRadius: '30px', 
+              background: currentPage === totalPages ? '#e2e8f0' : '#f1f5f9',
+              border: 'none', 
+              cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+              opacity: currentPage === totalPages ? 0.5 : 1
+            }}
+          >
+            Suivant ▶
+          </button>
+        </div>
+      )}
+
+      {/* ===== MODAL CRÉATION ===== */}
+      {showModal && (
+        <div style={styles.modal}>
+          <div style={styles.modalContent}>
+            <div style={styles.flexBetween}>
+              <h3 style={{ color: 'var(--text-primary)' }}>➕ Nouvel utilisateur</h3>
+              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
+            </div>
+            <UserForm 
+              initialData={formData}
+              initialErrors={errors}
+              onSubmit={handleCreate}
+              submitLabel="Créer"
+              onCancel={() => setShowModal(false)}
+              updateParentData={updateField}
+              updateParentErrors={updateErrors}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL MODIFICATION ===== */}
+      {showEditModal && editingUser && (
+        <div style={styles.modal}>
+          <div style={styles.modalContent}>
+            <div style={styles.flexBetween}>
+              <h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier l'utilisateur</h3>
+              <button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
+            </div>
+            <UserForm 
+              initialData={formData}
+              initialErrors={errors}
+              onSubmit={handleUpdate}
+              submitLabel="Enregistrer"
+              onCancel={() => setShowEditModal(false)}
+              updateParentData={updateField}
+              updateParentErrors={updateErrors}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -880,7 +1279,26 @@ const HistStatCard = ({ icon, label, value, color }) => (
     </div>
   </div>
 );
-
+const FieldError = ({ message }) =>
+  message ? (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, color: '#ef4444', fontWeight: 600 }}>
+      <span>⚠️</span>{message}
+    </div>
+  ) : null;
+  // Helper à ajouter une fois, avant StockManagement
+const imageToDataUrl = (src) => new Promise((resolve, reject) => {
+  const img = new Image();
+  img.crossOrigin = 'Anonymous';
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    resolve(canvas.toDataURL('image/png'));
+  };
+  img.onerror = reject;
+  img.src = src;
+});
 // ==================== COMPOSANT PRINCIPAL ====================
 function StockManagement() {
   const { user, logout } = useAuth();
@@ -896,6 +1314,14 @@ function StockManagement() {
   const [chiffreAffaire, setChiffreAffaire] = useState(0);
   const [caMois, setCaMois] = useState(0);
   const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
+  const [productErrors, setProductErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+  const productRules = {
+  reference: [required('La référence')],
+  nom: [required('Le nom')],
+  prixVente: [positiveNumber('Le prix')],
+  quantiteStock: [positiveInteger('La quantité initiale')],
+  };
   const [refresh, setRefresh] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [showStockModal, setShowStockModal] = useState(false);
@@ -959,7 +1385,6 @@ function StockManagement() {
   };
 
   const fetchStats = async () => { try { const res = await axios.get('http://localhost:8080/api/produits/dashboard/stats'); setStats(res.data); } catch (e) { console.error(e); } };
-
   // ── fetchVentes corrigé : clés YYYY-MM-DD + tri chronologique avant slice ──
   const fetchVentes = async () => {
     try {
@@ -1002,16 +1427,23 @@ function StockManagement() {
     } catch (err) { console.error('Erreur chargement fournisseurs', err); }
   };
 
-  const addProduct = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: newProduct.fournisseurId || null });
-      setRefresh(prev => prev + 1);
-      setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
-      setShowStockModal(false); setActiveSection('stocks');
-      toast.success('Produit ajouté avec succès');
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
-  };
+   const addProduct = async (e) => {
+  e.preventDefault();
+  const fieldErrors = validate(newProduct, productRules);
+  if (Object.keys(fieldErrors).length > 0) {
+    setProductErrors(fieldErrors);
+    toast.error('Veuillez corriger les champs en erreur');
+    return;
+  }
+  try {
+    await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: newProduct.fournisseurId || null });
+    setRefresh(prev => prev + 1);
+    setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
+    setProductErrors({});
+    setShowStockModal(false); setActiveSection('stocks');
+    toast.success('Produit ajouté avec succès');
+  } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+};
 
   const deleteProduct = async () => {
     if (!productToDelete) return;
@@ -1044,14 +1476,64 @@ function StockManagement() {
     } catch (err) { toast.error(err.response?.data?.error || 'Erreur lors de la modification'); }
   };
 
-  const imprimerTicketGroupe = (ventesGroupe, total, vendeur) => {
-    const doc = new jsPDF();
-    doc.setFontSize(18); doc.text('POWERTECH ENGINEERING GROUP', 105, 20, { align: 'center' });
-    doc.setFontSize(10); doc.text(`Date: ${new Date().toLocaleString()}`, 105, 30, { align: 'center' }); doc.text(`Vendeur: ${vendeur}`, 105, 36, { align: 'center' });
-    autoTable(doc, { head: [['Produit', 'Quantité', 'Prix unit.', 'Total']], body: ventesGroupe.map(v => [v.produit?.nom, v.quantite.toString(), `${v.prixUnitaire} FCFA`, `${(v.prixUnitaire * v.quantite).toLocaleString()} FCFA`]), startY: 45, styles: { fontSize: 10 }, headStyles: { fillColor: [59, 130, 246] } });
-    doc.setFontSize(12); doc.text(`TOTAL : ${total.toLocaleString()} FCFA`, 105, doc.lastAutoTable.finalY + 10, { align: 'center' });
-    doc.save(`ticket_${Date.now()}.pdf`);
-  };
+// ===== IMPRIMER TICKET GROUPE =====
+const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
+  const [headerImg, footerImg] = await Promise.all([
+    imageToDataUrl(factureHeader),
+    imageToDataUrl(factureFooter),
+  ]);
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const headerH = 22;
+
+  doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH);
+  doc.setFontSize(10);
+  doc.setTextColor(30, 27, 75);
+  doc.text(`Date: ${new Date().toLocaleString('fr-FR')}`, 105, headerH + 10, { align: 'center' });
+  doc.text(`Vendeur: ${vendeur}`, 105, headerH + 16, { align: 'center' });
+
+  autoTable(doc, {
+    head: [['Produit', 'Quantité', 'Prix unit.', 'Total']],
+    body: ventesGroupe.map(v => [
+      v.produit?.nom || 'N/A',
+      v.quantite.toString(),
+      `${(v.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA`,
+      `${((v.prixUnitaire || 0) * (v.quantite || 0)).toLocaleString('fr-FR')} FCFA`
+    ]),
+    startY: headerH + 22,
+    margin: { left: 14, right: 14 },
+    styles: {
+      fontSize: 10,
+      cellPadding: 6,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      textColor: [30, 41, 59],
+    },
+    headStyles: {
+      fillColor: [249, 115, 22],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [255, 247, 237],
+    },
+    columnStyles: {
+      1: { halign: 'center' },
+      2: { halign: 'right' },
+      3: { halign: 'right', fontStyle: 'bold', textColor: [249, 115, 22] },
+    },
+  });
+
+  doc.setFontSize(13);
+  doc.setTextColor(30, 27, 75);
+  doc.setFont(undefined, 'bold');
+  doc.text(`TOTAL : ${(total || 0).toLocaleString('fr-FR')} FCFA`, 105, doc.lastAutoTable.finalY + 12, { align: 'center' });
+
+  doc.addImage(footerImg, 'PNG', 0, doc.internal.pageSize.getHeight() - 30, pageWidth, 30);
+
+  doc.save(`ticket_${Date.now()}.pdf`);
+};
 
   const menuItems = useMemo(() => {
     if (role === 'ADMIN') return [{ section: 'dashboard', label: 'Dashboard', icon: '📊' }, { section: 'stocks', label: 'Gestion des stocks', icon: '📦' }, { section: 'commandes', label: 'Commandes', icon: '📦' }, { section: 'historique', label: 'Historique', icon: '📜' }, { section: 'cloture', label: 'Clôture de caisse', icon: '💰' }, { section: 'utilisateurs', label: 'Utilisateurs', icon: '👥' }, { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' }];
@@ -1077,16 +1559,72 @@ function StockManagement() {
     return filtered;
   };
 
-  const exportPDF = () => {
-    const ventesFiltrees = getVentesFiltrees();
-    if (!ventesFiltrees.length) { toast.error('Aucune donnée à exporter'); return; }
-    const doc = new jsPDF();
-    doc.setFontSize(18); doc.text('Rapport des ventes - Powertech', 14, 20);
-    doc.setFontSize(10); doc.text(`Généré le ${new Date().toLocaleString()}`, 14, 30);
-    autoTable(doc, { head: [['Date', 'Produit', 'Quantité', 'Total (FCFA)', 'Vendeur']], body: ventesFiltrees.map(v => [new Date(v.dateVente).toLocaleString(), v.produit?.nom || 'N/A', v.quantite.toString(), v.montantTotal.toLocaleString(), v.vendeur]), startY: 40, styles: { fontSize: 8 }, headStyles: { fillColor: [59, 130, 246] } });
-    doc.save(`rapport_ventes_${new Date().toISOString().slice(0, 19)}.pdf`);
+// ===== EXPORT PDF AVEC EN-TÊTE ET PIED DE PAGE =====
+const exportPDF = async () => {
+  const ventesFiltrees = getVentesFiltrees();
+  if (!ventesFiltrees.length) { toast.error('Aucune donnée à exporter'); return; }
+
+  const [headerImg, footerImg] = await Promise.all([
+    imageToDataUrl(factureHeader),
+    imageToDataUrl(factureFooter),
+  ]);
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const headerH = 22;
+  const footerH = 30;
+
+  const drawHeaderFooter = () => {
+    doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH);
+    doc.addImage(footerImg, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
   };
 
+  drawHeaderFooter();
+  doc.setFontSize(14);
+  doc.setTextColor(30, 27, 75);
+  doc.text('Rapport des ventes - Powertech', 14, headerH + 12);
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 14, headerH + 18);
+
+  autoTable(doc, {
+    head: [['Date', 'Produit', 'Quantité', 'Total (FCFA)', 'Vendeur']],
+    body: ventesFiltrees.map(v => [
+      new Date(v.dateVente).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      v.produit?.nom || 'N/A',
+      v.quantite.toString(),
+      `${(v.montantTotal || 0).toLocaleString('fr-FR')} FCFA`,
+      v.vendeur
+    ]),
+    startY: headerH + 24,
+    margin: { top: headerH, bottom: footerH, left: 14, right: 14 },
+    styles: {
+      fontSize: 9,
+      cellPadding: 6,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      textColor: [30, 41, 59],
+    },
+    headStyles: {
+      fillColor: [30, 27, 75],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9,
+      halign: 'left',
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      2: { halign: 'center' },              // Quantité centrée
+      3: { halign: 'right', fontStyle: 'bold', textColor: [249, 115, 22] }, // Total aligné à droite, en orange
+    },
+    didDrawPage: () => drawHeaderFooter(),
+  });
+
+  doc.save(`rapport_ventes_${new Date().toISOString().slice(0, 19)}.pdf`);
+};
   const ventesFiltrees = getVentesFiltrees();
   const getSaleGroupKey = (sale) => {
     const hasFacture = sale.factureId !== undefined && sale.factureId !== null;
@@ -1111,15 +1649,15 @@ function StockManagement() {
       <Toaster position="top-right" />
       <RealTimeNotification onNotification={handleWebsocketNotification} />
 
-      {/* ===== SIDEBAR ===== */}
+     {/* ===== SIDEBAR ===== */}
 <div style={{ ...styles.sidebar, position: 'fixed', overflowY: 'auto', overflowX: 'hidden', display: 'flex', flexDirection: 'column' }}>
   {/* Liseré d'accent en haut */}
   <div style={{ height: 3, width: '100%', background: 'linear-gradient(90deg, #f97316, #3b82f6, #6366f1)', flexShrink: 0 }} />
 
-  <div style={{ padding: '22px 16px 8px 16px', flexShrink: 0 }}>
+  <div style={{ padding: '22px 16px 10px 16px', flexShrink: 0 }}>
     <div style={{
       background: 'white', borderRadius: 16, padding: '14px 16px', display: 'flex',
-      justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+      justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 24px rgba(254, 241, 241, 0.25)',
     }}>
       <img src={logo} alt="Powertech" style={{ width: '100%', height: 'auto', display: 'block' }} />
     </div>
@@ -1129,7 +1667,7 @@ function StockManagement() {
   <div
     onClick={toggleTheme}
     style={{
-      margin: '4px 16px 18px 16px', padding: '11px 16px', background: 'var(--bg-user-card)',
+      margin: '4px 16px 24px 16px', padding: '11px 16px', background: 'var(--bg-user-card)',
       borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       cursor: 'pointer', border: '1px solid rgba(255,255,255,0.06)', transition: '0.2s', flexShrink: 0,
     }}
@@ -1152,36 +1690,15 @@ function StockManagement() {
     </div>
   </div>
 
-  {/* ===== CARTE UTILISATEUR ===== */}
-  {/* ===== CARTE UTILISATEUR (compacte) ===== */}
-{(() => {
-  const roleColors = { ADMIN: '#8b5cf6', STOCK_MANAGER: '#3b82f6', VENDEUR: '#10b981' };
-  const rc = roleColors[role] || '#94a3b8';
-  const initials = (user?.nom || '').split(' ').filter(Boolean).map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
-  return (
-    <div style={{
-      margin: '0 16px 18px 16px', padding: '12px 14px', background: 'var(--bg-user-card)',
-      borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12,
-      border: `1px solid ${rc}33`, flexShrink: 0,
-    }}>
-      <div style={{
-        width: 36, height: 36, minWidth: 36, borderRadius: '50%', background: rc + '22', color: rc,
-        border: `1.5px solid ${rc}55`, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, fontWeight: 800, flexShrink: 0,
-      }}>{initials}</div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.nom}</div>
-        <span style={{
-          display: 'inline-block', marginTop: 3, fontSize: 10.5, fontWeight: 700, color: rc,
-          background: rc + '1c', padding: '2px 10px', borderRadius: 20, border: `1px solid ${rc}44`,
-        }}>{getRoleLabel()}</span>
-      </div>
-    </div>
-  );
-})()}
+  {/* Étiquette de section */}
+  <div style={{ padding: '0 22px 10px 22px', flexShrink: 0 }}>
+    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+      Menu principal
+    </span>
+  </div>
 
   {/* ===== MENU ===== */}
-  <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+  <div style={{ padding: '0 12px', display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
     {(() => {
       const ITEM_COLORS = {
         dashboard: '#3b82f6', stocks: '#f59e0b', commandes: '#6366f1', historique: '#14b8a6',
@@ -1195,20 +1712,28 @@ function StockManagement() {
             key={item.section}
             onClick={() => setActiveSection(item.section)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 12,
-              cursor: 'pointer', fontWeight: 600, fontSize: 14, position: 'relative', flexShrink: 0,
-              background: isActive ? `linear-gradient(90deg, ${c}, ${c}cc)` : 'transparent',
+              display: 'flex', alignItems: 'center', gap: 13, padding: '12px 14px', borderRadius: 13,
+              cursor: 'pointer', fontWeight: 600, fontSize: 14.5, position: 'relative', flexShrink: 0,
+              background: isActive ? `linear-gradient(135deg, ${c}, ${c}bb)` : 'transparent',
               color: isActive ? 'white' : '#cbd5e1',
-              boxShadow: isActive ? `0 6px 16px ${c}4d` : 'none',
-              transition: 'background .15s ease, color .15s ease',
+              boxShadow: isActive ? `0 8px 20px ${c}4d` : 'none',
+              transition: 'background .15s ease, color .15s ease, transform .15s ease',
+              transform: isActive ? 'translateX(2px)' : 'none',
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
           >
+            {isActive && (
+              <div style={{
+                position: 'absolute', left: -12, top: '50%', transform: 'translateY(-50%)',
+                width: 4, height: 20, borderRadius: 4, background: 'white',
+              }} />
+            )}
             <div style={{
-              width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, flexShrink: 0,
-              background: isActive ? 'rgba(255,255,255,0.2)' : c + '1c',
+              width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, flexShrink: 0,
+              background: isActive ? 'rgba(255,255,255,0.22)' : c + '1c',
+              border: isActive ? 'none' : `1px solid ${c}2a`,
             }}>{item.icon}</div>
             <span>{item.label}</span>
           </div>
@@ -1218,12 +1743,12 @@ function StockManagement() {
   </div>
 
   {/* ===== DÉCONNEXION ===== */}
-  <div style={{ marginTop: 'auto', padding: '16px 16px 22px 16px', flexShrink: 0 }}>
-    <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', marginBottom: 14 }} />
+  <div style={{ marginTop: 'auto', padding: '20px 16px 22px 16px', flexShrink: 0 }}>
+    <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', marginBottom: 16 }} />
     <button
       onClick={logout}
       style={{
-        width: '100%', padding: '12px', background: '#ef44441c', border: '1px solid #ef444444',
+        width: '100%', padding: '13px', background: '#ef44441c', border: '1px solid #ef444444',
         borderRadius: 14, color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center',
         justifyContent: 'center', gap: 10, fontWeight: 700, fontSize: 13.5, transition: '0.2s',
       }}
@@ -1232,7 +1757,6 @@ function StockManagement() {
     >🚪 Déconnexion</button>
   </div>
 </div>
-
       {/* ===== MAIN ===== */}
       <div style={styles.main}>
         {/* Header */}
@@ -1312,7 +1836,7 @@ function StockManagement() {
         />
       </div>
       <button 
-        onClick={() => { setStockTab('add'); setShowStockModal(true); }} 
+        onClick={() => { setStockTab('add'); setProductErrors({}); setShowStockModal(true); }} 
         style={{ 
           ...styles.btnPrimary, 
           padding: '10px 24px', 
@@ -1465,7 +1989,6 @@ function StockManagement() {
                 };
               }
 
-              // Couleurs d'avatar par produit
               const avatarColors = [
                 '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
                 '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
@@ -1483,7 +2006,6 @@ function StockManagement() {
                   onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-table-row-hover)'}
                   onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                 >
-                  {/* Thumbnail / Avatar */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)'
@@ -1505,7 +2027,6 @@ function StockManagement() {
                     </div>
                   </td>
                   
-                  {/* Référence */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
@@ -1516,7 +2037,6 @@ function StockManagement() {
                     {p.reference || '-'}
                   </td>
                   
-                  {/* Nom */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
@@ -1526,7 +2046,6 @@ function StockManagement() {
                     {p.nom}
                   </td>
                   
-                  {/* Prix */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
@@ -1536,7 +2055,6 @@ function StockManagement() {
                     {p.prixVente?.toLocaleString()} FCFA
                   </td>
                   
-                  {/* Stock */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
@@ -1557,7 +2075,6 @@ function StockManagement() {
                     </span>
                   </td>
                   
-                  {/* Fournisseur */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
@@ -1577,14 +2094,13 @@ function StockManagement() {
                     </span>
                   </td>
                   
-                  {/* Actions */}
                   <td style={{ 
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-color)',
                     textAlign: 'center'
                   }}>
                     <button 
-                      onClick={() => { setProduitEdit(p); setShowEditModal(true); }} 
+                      onClick={() => { setProduitEdit(p); setEditErrors({}); setShowEditModal(true); }} 
                       style={{ 
                         background: '#3b82f6',
                         border: 'none',
@@ -1732,19 +2248,41 @@ function StockManagement() {
             <form onSubmit={addProduct}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Référence *</label>
-                <input style={styles.input} value={newProduct.reference} onChange={e => setNewProduct({ ...newProduct, reference: e.target.value })} required />
+                <input
+                  style={{ ...styles.input, border: productErrors.reference ? '1.5px solid #ef4444' : styles.input.border }}
+                  value={newProduct.reference}
+                  onChange={e => { setNewProduct({ ...newProduct, reference: e.target.value }); setProductErrors(p => ({ ...p, reference: undefined })); }}
+                />
+                <FieldError message={productErrors.reference} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Nom *</label>
-                <input style={styles.input} value={newProduct.nom} onChange={e => setNewProduct({ ...newProduct, nom: e.target.value })} required />
+                <input
+                  style={{ ...styles.input, border: productErrors.nom ? '1.5px solid #ef4444' : styles.input.border }}
+                  value={newProduct.nom}
+                  onChange={e => { setNewProduct({ ...newProduct, nom: e.target.value }); setProductErrors(p => ({ ...p, nom: undefined })); }}
+                />
+                <FieldError message={productErrors.nom} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Prix (FCFA) *</label>
-                <input type="number" style={styles.input} value={newProduct.prixVente} onChange={e => setNewProduct({ ...newProduct, prixVente: e.target.value })} required />
+                <input
+                  type="number"
+                  style={{ ...styles.input, border: productErrors.prixVente ? '1.5px solid #ef4444' : styles.input.border }}
+                  value={newProduct.prixVente}
+                  onChange={e => { setNewProduct({ ...newProduct, prixVente: e.target.value }); setProductErrors(p => ({ ...p, prixVente: undefined })); }}
+                />
+                <FieldError message={productErrors.prixVente} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Quantité initiale *</label>
-                <input type="number" style={styles.input} value={newProduct.quantiteStock} onChange={e => setNewProduct({ ...newProduct, quantiteStock: e.target.value })} required />
+                <input
+                  type="number"
+                  style={{ ...styles.input, border: productErrors.quantiteStock ? '1.5px solid #ef4444' : styles.input.border }}
+                  value={newProduct.quantiteStock}
+                  onChange={e => { setNewProduct({ ...newProduct, quantiteStock: e.target.value }); setProductErrors(p => ({ ...p, quantiteStock: undefined })); }}
+                />
+                <FieldError message={productErrors.quantiteStock} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fournisseur</label>
@@ -1792,26 +2330,42 @@ function StockManagement() {
       </div>
     )}
 
-    {/* ===== MODAL MODIFICATION ===== */}
+    {/* ===== MODAL MODIFICATION (avec validation) ===== */}
     {showEditModal && produitEdit && (
       <div style={styles.modal}>
         <div style={{ ...styles.modalContent, maxWidth: '500px' }}>
           <div style={styles.flexBetween}>
             <h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le produit</h3>
-            <button onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
+            <button onClick={() => { setShowEditModal(false); setProduitEdit(null); setEditErrors({}); }} style={{ background: 'none', border: 'none', fontSize: '22px', color: 'var(--text-primary)' }}>✖️</button>
           </div>
           <form onSubmit={handleUpdateProduct}>
             <div style={styles.formGroup}>
               <label style={styles.label}>Référence *</label>
-              <input style={styles.input} value={produitEdit.reference} onChange={e => setProduitEdit({ ...produitEdit, reference: e.target.value })} required />
+              <input
+                style={{ ...styles.input, border: editErrors.reference ? '1.5px solid #ef4444' : styles.input.border }}
+                value={produitEdit.reference}
+                onChange={e => { setProduitEdit({ ...produitEdit, reference: e.target.value }); setEditErrors(p => ({ ...p, reference: undefined })); }}
+              />
+              <FieldError message={editErrors.reference} />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Nom *</label>
-              <input style={styles.input} value={produitEdit.nom} onChange={e => setProduitEdit({ ...produitEdit, nom: e.target.value })} required />
+              <input
+                style={{ ...styles.input, border: editErrors.nom ? '1.5px solid #ef4444' : styles.input.border }}
+                value={produitEdit.nom}
+                onChange={e => { setProduitEdit({ ...produitEdit, nom: e.target.value }); setEditErrors(p => ({ ...p, nom: undefined })); }}
+              />
+              <FieldError message={editErrors.nom} />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Prix (FCFA) *</label>
-              <input type="number" style={styles.input} value={produitEdit.prixVente} onChange={e => setProduitEdit({ ...produitEdit, prixVente: e.target.value })} required />
+              <input
+                type="number"
+                style={{ ...styles.input, border: editErrors.prixVente ? '1.5px solid #ef4444' : styles.input.border }}
+                value={produitEdit.prixVente}
+                onChange={e => { setProduitEdit({ ...produitEdit, prixVente: e.target.value }); setEditErrors(p => ({ ...p, prixVente: undefined })); }}
+              />
+              <FieldError message={editErrors.prixVente} />
             </div>
             <div style={styles.formGroup}>
               <label style={styles.label}>Seuil alerte</label>
@@ -1826,7 +2380,7 @@ function StockManagement() {
             </div>
             <div style={styles.gap2}>
               <button type="submit" style={styles.btnPrimary}>✅ Enregistrer</button>
-              <button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
+              <button type="button" onClick={() => { setShowEditModal(false); setProduitEdit(null); setEditErrors({}); }} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
             </div>
           </form>
         </div>
@@ -2021,7 +2575,7 @@ function App() {
   <Route path="/commande/rejeter-demande/:token"        element={<CommandeRejeterDemande />} />
   <Route path="/commande/confirmer-date/:token"         element={<ConfirmerDateExpedition />} />
   <Route path="/*" element={<AuthProvider><AppContent /></AuthProvider>} />
-</Routes>
+        </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );
