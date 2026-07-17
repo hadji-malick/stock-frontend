@@ -49,6 +49,83 @@ const FieldError = ({ message }) =>
     </div>
   ) : null;
 
+const FournisseurForm = ({ formData, updateField, errors, onSubmit, submitLabel, onCancel, styles, errInput }) => (
+  <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={styles.grid2}>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Nom du fournisseur *</label>
+        <input
+          type="text"
+          placeholder="Nom du fournisseur"
+          value={formData.nom}
+          onChange={e => updateField('nom', e.target.value)}
+          style={errInput('nom')}
+        />
+        <FieldError message={errors.nom} />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Contact</label>
+        <input
+          type="text"
+          placeholder="Contact"
+          value={formData.contact}
+          onChange={e => updateField('contact', e.target.value)}
+          style={errInput('contact')}
+        />
+        <FieldError message={errors.contact} />
+      </div>
+    </div>
+
+    <div style={styles.grid2}>
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Téléphone</label>
+        <input
+          type="text"
+          placeholder="Téléphone"
+          value={formData.telephone}
+          onChange={e => updateField('telephone', e.target.value)}
+          style={errInput('telephone')}
+        />
+        <FieldError message={errors.telephone} />
+      </div>
+
+      <div style={styles.formGroup}>
+        <label style={styles.label}>Email</label>
+        <input
+          type="email"
+          placeholder="Email"
+          value={formData.email}
+          onChange={e => updateField('email', e.target.value)}
+          style={errInput('email')}
+        />
+        <FieldError message={errors.email} />
+      </div>
+    </div>
+
+    <div style={styles.formGroup}>
+      <label style={styles.label}>Adresse</label>
+      <textarea
+        placeholder="Adresse"
+        value={formData.adresse}
+        onChange={e => updateField('adresse', e.target.value)}
+        style={{
+          ...errInput('adresse'),
+          minHeight: 100,
+          resize: 'vertical',
+          paddingTop: 12,
+        }}
+      />
+      <FieldError message={errors.adresse} />
+    </div>
+
+    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
+      <button type="button" onClick={onCancel} style={styles.btnSecondary}>Annuler</button>
+      <button type="submit" style={styles.btnPrimary}>{submitLabel}</button>
+    </div>
+  </form>
+);
+
 // Règles de validation du formulaire fournisseur
 const fournisseurRules = {
   nom: [required('Le nom')],
@@ -211,40 +288,6 @@ export default function FournisseurManagement() {
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
-  const FournisseurForm = ({ onSubmit, submitLabel, onCancel }) => (
-    <form onSubmit={onSubmit}>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Nom *</label>
-        <input type="text" style={errInput('nom')} value={formData.nom} onChange={e => updateField('nom', e.target.value)} placeholder="Nom du fournisseur" />
-        <FieldError message={errors.nom} />
-      </div>
-      <div style={styles.grid2}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Contact</label>
-          <input type="text" style={styles.input} value={formData.contact} onChange={e => updateField('contact', e.target.value)} placeholder="Nom du contact" />
-        </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Téléphone</label>
-          <input type="text" style={errInput('telephone')} value={formData.telephone} onChange={e => updateField('telephone', e.target.value)} placeholder="+221 77 123 45 67" />
-          <FieldError message={errors.telephone} />
-        </div>
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Email</label>
-        <input type="text" style={errInput('email')} value={formData.email} onChange={e => updateField('email', e.target.value)} placeholder="email@fournisseur.com" />
-        <FieldError message={errors.email} />
-      </div>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Adresse</label>
-        <input type="text" style={styles.input} value={formData.adresse} onChange={e => updateField('adresse', e.target.value)} placeholder="Adresse du fournisseur" />
-      </div>
-      <div style={styles.gap2}>
-        <button type="submit" style={styles.btnPrimary} disabled={loading}>{loading ? 'Enregistrement...' : submitLabel}</button>
-        <button type="button" onClick={onCancel} style={{ ...styles.btnPrimary, background: '#94a3b8' }}>Annuler</button>
-      </div>
-    </form>
-  );
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
@@ -367,7 +410,16 @@ export default function FournisseurManagement() {
               <h3 style={{ color: 'var(--text-primary)' }}>➕ Nouveau fournisseur</h3>
               <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
-            <FournisseurForm onSubmit={handleSubmit} submitLabel="✅ Ajouter" onCancel={() => setShowModal(false)} />
+            <FournisseurForm
+              formData={formData}
+              updateField={updateField}
+              errors={errors}
+              onSubmit={handleSubmit}
+              submitLabel="✅ Ajouter"
+              onCancel={() => setShowModal(false)}
+              styles={styles}
+              errInput={errInput}
+            />
           </div>
         </div>
       )}
@@ -379,7 +431,16 @@ export default function FournisseurManagement() {
               <h3 style={{ color: 'var(--text-primary)' }}>✏️ Modifier le fournisseur</h3>
               <button onClick={() => setShowEditModal(false)} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
             </div>
-            <FournisseurForm onSubmit={handleUpdate} submitLabel="✅ Enregistrer" onCancel={() => setShowEditModal(false)} />
+            <FournisseurForm
+              formData={formData}
+              updateField={updateField}
+              errors={errors}
+              onSubmit={handleUpdate}
+              submitLabel="✅ Enregistrer"
+              onCancel={() => setShowEditModal(false)}
+              styles={styles}
+              errInput={errInput}
+            />
           </div>
         </div>
       )}

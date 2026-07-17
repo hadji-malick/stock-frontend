@@ -227,7 +227,7 @@ function DashboardContent({ stats, ventesParJour, topProduits, totalVentes, chif
     v >= 1_000_000 ? `${(v / 1_000_000).toFixed(2)} M FCFA` : `${(v || 0).toLocaleString('fr-FR')} FCFA`;
 
   const kpis = [
-    { title: 'Produits en stock',  value: stats?.totalProduits ?? 0,             icon: '📦', accentColor: `linear-gradient(90deg,${T.acc},${T.ind})`,  subText: '↑ +12 ce mois' },
+    { title: 'Produits en stock',  value: stats?.totalProduits ?? 0,             icon: '📦', accentColor: `linear-gradient(90deg,${T.acc},${T.ind})`,  subText: '↑ + ce mois' },
     { title: 'Stock bas',          value: stats?.produitsStockBas ?? 0,           icon: '⚠️', accentColor: `linear-gradient(90deg,${T.amb},#fbbf24)`,  subText: '⚑ À réapprovisionner', subColor: T.amb },
     { title: 'Valeur du stock',    value: fmtFCFA(stats?.valeurTotaleStock ?? 0), icon: '💰', accentColor: `linear-gradient(90deg,${T.grn},#34d399)`,  subText: '↑ +8.4 % vs mois dernier' },
     { title: 'CA du mois',         value: fmtFCFA(caMois),                        icon: '📈', accentColor: `linear-gradient(90deg,${T.rose},#fb7185)`, subText: '↑ +23 % vs mois dernier' },
@@ -404,36 +404,81 @@ function CartComponent({ produits, user, onSaleComplete }) {
     } finally { setLoading(false); }
   };
 
-   const imprimerTicketSilencieux = (data) => {
+const imprimerTicketSilencieux = (data) => {
   const ticketHtml = `<!DOCTYPE html><html><head><title>Ticket Powertech</title><style>
-    body{font-family:Arial;padding:0;margin:0}
-    .ticket{max-width:380px;margin:auto;border:1px solid #ccc;border-radius:12px;overflow:hidden}
-    .hdr{width:100%;display:block}
-    .ftr{width:100%;display:block}
-    .body{padding:20px;text-align:center}
-    .row{display:flex;justify-content:space-between;margin:6px 0}
-    .total{font-weight:bold;border-top:1px dashed #aaa;padding-top:8px;margin-top:8px}
-    @media print{body{margin:0;padding:0}.ticket{border:none}}
+    body{font-family:'Courier New',monospace;padding:0;margin:0;background:#f1f5f9}
+    .ticket{max-width:340px;margin:20px auto;background:white;border-radius:14px;padding:26px 20px 24px 20px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+
+    /* ===== LOGO CENTRÉ, GRAND, SANS CADRE ===== */
+    .header{display:flex;justify-content:center;align-items:center;margin-bottom:18px}
+    .header img{width:170px;height:auto;display:block}
+
+    .divider{border-top:1px dashed #cbd5e1;margin:14px 0}
+    .meta{font-size:11px;color:#475569;text-align:center;line-height:1.8}
+    .meta strong{color:#1e1b4b}
+
+    .row{display:flex;justify-content:space-between;font-size:13px;margin:6px 0;color:#334155;padding:3px 0}
+    .row .qty{color:#94a3b8;font-size:11px}
+    .row .amount{font-weight:600;color:#1e1b4b}
+
+    .total-row{display:flex;justify-content:space-between;font-weight:bold;font-size:18px;padding-top:12px;color:#1e1b4b;border-top:2px solid #1e1b4b;margin-top:4px}
+
+    .footer{text-align:center;font-size:10px;color:#94a3b8;margin-top:18px;line-height:1.8;border-top:1px dashed #e2e8f0;padding-top:14px}
+    .footer .thanks{font-size:11px;color:#1e1b4b;font-weight:600}
+
+    @media print{
+      body{background:white}
+      .ticket{box-shadow:none;margin:0;border-radius:0;padding:16px}
+    }
   </style></head><body>
   <div class="ticket">
-    <img src="${factureHeader}" class="hdr"/>
-    <div class="body">
-      <div>Facture: ${data.numeroFacture}</div>
-      <div>${new Date().toLocaleString()}</div>
-      <div>Vendeur: ${user?.nom}</div>
-      <hr/>
-      ${data.details.map(d => `<div class="row"><span>${d.produit} x ${d.quantite}</span><span>${d.sousTotal.toLocaleString()} FCFA</span></div>`).join('')}
-      <div class="row total"><span>TOTAL</span><span>${data.total.toLocaleString()} FCFA</span></div>
+
+    <!-- ===== LOGO CENTRÉ, GRAND, SANS CADRE ===== -->
+    <div class="header">
+      <img src="${logo}" alt="Powertech"/>
     </div>
-    <img src="${factureFooter}" class="ftr"/>
+
+    <div class="meta">
+      <strong>Facture</strong> ${data.numeroFacture}<br/>
+      ${new Date().toLocaleString('fr-FR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}<br/>
+      <strong>Vendeur</strong> : ${user?.nom || 'N/A'}
+    </div>
+
+    <div class="divider"></div>
+
+    ${data.details.map(d => `
+      <div class="row">
+        <span>${d.produit} <span class="qty">×${d.quantite}</span></span>
+        <span class="amount">${d.sousTotal.toLocaleString('fr-FR')} FCFA</span>
+      </div>
+    `).join('')}
+
+    <div class="divider"></div>
+
+    <div class="total-row">
+      <span>TOTAL</span>
+      <span>${data.total.toLocaleString('fr-FR')} FCFA</span>
+    </div>
+
+    <div class="footer">
+      <div class="thanks">🙏 Merci de votre visite !</div>
+      Dakar, Sénégal<br/>
+      📞 (+221) 766432045
+    </div>
   </div>
   <script>window.onload=function(){window.print();setTimeout(()=>window.close(),1000)}<\/script>
   </body></html>`;
-  const win = window.open('', '_blank', 'width=450,height=600,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
+
+  const win = window.open('', '_blank', 'width=400,height=650,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
   win.document.write(ticketHtml);
   win.document.close();
 };
-
   const posColors = { blue: '#3b82f6', green: '#10b981', amber: '#f59e0b', red: '#ef4444' };
   const avatarColors = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
   const colorFor = (name = '') => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
@@ -1294,11 +1339,17 @@ const imageToDataUrl = (src) => new Promise((resolve, reject) => {
     canvas.width = img.width;
     canvas.height = img.height;
     canvas.getContext('2d').drawImage(img, 0, 0);
-    resolve(canvas.toDataURL('image/png'));
+    resolve({ dataUrl: canvas.toDataURL('image/png'), width: img.width, height: img.height });
   };
   img.onerror = reject;
   img.src = src;
 });
+
+// Formate un nombre en FCFA avec une vraie espace ASCII (évite le bug d'espace insécable de jsPDF)
+const formatFCFA = (n) => {
+  const num = Math.round(n || 0);
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+};
 // ==================== COMPOSANT PRINCIPAL ====================
 function StockManagement() {
   const { user, logout } = useAuth();
@@ -1313,7 +1364,7 @@ function StockManagement() {
   const [totalVentes, setTotalVentes] = useState(0);
   const [chiffreAffaire, setChiffreAffaire] = useState(0);
   const [caMois, setCaMois] = useState(0);
-  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
+  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
   const [productErrors, setProductErrors] = useState({});
   const [editErrors, setEditErrors] = useState({});
   const productRules = {
@@ -1427,6 +1478,11 @@ function StockManagement() {
     } catch (err) { console.error('Erreur chargement fournisseurs', err); }
   };
 
+  const getFournisseurIdByName = (nom) => {
+    const fournisseur = fournisseurs.find(f => f.nom === nom);
+    return fournisseur ? fournisseur.id : null;
+  };
+
    const addProduct = async (e) => {
   e.preventDefault();
   const fieldErrors = validate(newProduct, productRules);
@@ -1436,10 +1492,10 @@ function StockManagement() {
     return;
   }
   try {
-    await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: newProduct.fournisseurId || null });
-    setRefresh(prev => prev + 1);
-    setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurId: '' });
-    setProductErrors({});
+      const fournisseurId = getFournisseurIdByName(newProduct.fournisseurNom);
+      await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: fournisseurId || null });
+      setRefresh(prev => prev + 1);
+      setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
     setShowStockModal(false); setActiveSection('stocks');
     toast.success('Produit ajouté avec succès');
   } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
@@ -1478,42 +1534,47 @@ function StockManagement() {
 
 // ===== IMPRIMER TICKET GROUPE =====
 const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
-  const [headerImg, footerImg] = await Promise.all([
+  const [header, footer] = await Promise.all([
     imageToDataUrl(factureHeader),
     imageToDataUrl(factureFooter),
   ]);
 
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
-  const headerH = 22;
+  const headerH = (header.height / header.width) * pageWidth;
+  const footerH = (footer.height / footer.width) * pageWidth;
 
-  doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH);
+  doc.addImage(header.dataUrl, 'PNG', 0, 0, pageWidth, headerH);
+
   doc.setFontSize(10);
   doc.setTextColor(30, 27, 75);
-  doc.text(`Date: ${new Date().toLocaleString('fr-FR')}`, 105, headerH + 10, { align: 'center' });
-  doc.text(`Vendeur: ${vendeur}`, 105, headerH + 16, { align: 'center' });
+  doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')} ${new Date().toLocaleTimeString('fr-FR')}`, 105, headerH + 12, { align: 'center' });
+  doc.text(`Vendeur: ${vendeur}`, 105, headerH + 18, { align: 'center' });
 
   autoTable(doc, {
     head: [['Produit', 'Quantité', 'Prix unit.', 'Total']],
     body: ventesGroupe.map(v => [
       v.produit?.nom || 'N/A',
       v.quantite.toString(),
-      `${(v.prixUnitaire || 0).toLocaleString('fr-FR')} FCFA`,
-      `${((v.prixUnitaire || 0) * (v.quantite || 0)).toLocaleString('fr-FR')} FCFA`
+      `${formatFCFA(v.prixUnitaire)} FCFA`,
+      `${formatFCFA((v.prixUnitaire || 0) * (v.quantite || 0))} FCFA`
     ]),
-    startY: headerH + 22,
+    startY: headerH + 26,
     margin: { left: 14, right: 14 },
     styles: {
+      font: 'helvetica',
       fontSize: 10,
       cellPadding: 6,
       lineColor: [226, 232, 240],
       lineWidth: 0.2,
       textColor: [30, 41, 59],
+      valign: 'middle',
     },
     headStyles: {
       fillColor: [249, 115, 22],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
+      fontSize: 10,
     },
     alternateRowStyles: {
       fillColor: [255, 247, 237],
@@ -1525,12 +1586,13 @@ const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
     },
   });
 
-  doc.setFontSize(13);
+  doc.setFontSize(14);
   doc.setTextColor(30, 27, 75);
-  doc.setFont(undefined, 'bold');
-  doc.text(`TOTAL : ${(total || 0).toLocaleString('fr-FR')} FCFA`, 105, doc.lastAutoTable.finalY + 12, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL : ${formatFCFA(total)} FCFA`, 105, doc.lastAutoTable.finalY + 14, { align: 'center' });
 
-  doc.addImage(footerImg, 'PNG', 0, doc.internal.pageSize.getHeight() - 30, pageWidth, 30);
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.addImage(footer.dataUrl, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
 
   doc.save(`ticket_${Date.now()}.pdf`);
 };
@@ -1564,7 +1626,7 @@ const exportPDF = async () => {
   const ventesFiltrees = getVentesFiltrees();
   if (!ventesFiltrees.length) { toast.error('Aucune donnée à exporter'); return; }
 
-  const [headerImg, footerImg] = await Promise.all([
+  const [header, footer] = await Promise.all([
     imageToDataUrl(factureHeader),
     imageToDataUrl(factureFooter),
   ]);
@@ -1572,39 +1634,43 @@ const exportPDF = async () => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const headerH = 22;
-  const footerH = 30;
+  const headerH = (header.height / header.width) * pageWidth;
+  const footerH = (footer.height / footer.width) * pageWidth;
 
   const drawHeaderFooter = () => {
-    doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH);
-    doc.addImage(footerImg, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
+    doc.addImage(header.dataUrl, 'PNG', 0, 0, pageWidth, headerH);
+    doc.addImage(footer.dataUrl, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
   };
 
   drawHeaderFooter();
-  doc.setFontSize(14);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 27, 75);
-  doc.text('Rapport des ventes - Powertech', 14, headerH + 12);
+  doc.text('Rapport des ventes - Powertech', 14, headerH + 14);
   doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(100);
-  doc.text(`Généré le ${new Date().toLocaleString('fr-FR')}`, 14, headerH + 18);
+  doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}`, 14, headerH + 20);
 
   autoTable(doc, {
     head: [['Date', 'Produit', 'Quantité', 'Total (FCFA)', 'Vendeur']],
     body: ventesFiltrees.map(v => [
-      new Date(v.dateVente).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      new Date(v.dateVente).toLocaleDateString('fr-FR') + ' ' + new Date(v.dateVente).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       v.produit?.nom || 'N/A',
       v.quantite.toString(),
-      `${(v.montantTotal || 0).toLocaleString('fr-FR')} FCFA`,
+      `${formatFCFA(v.montantTotal)} FCFA`,
       v.vendeur
     ]),
-    startY: headerH + 24,
-    margin: { top: headerH, bottom: footerH, left: 14, right: 14 },
+    startY: headerH + 28,
+    margin: { top: headerH + 4, bottom: footerH + 4, left: 14, right: 14 },
     styles: {
+      font: 'helvetica',
       fontSize: 9,
       cellPadding: 6,
       lineColor: [226, 232, 240],
       lineWidth: 0.2,
       textColor: [30, 41, 59],
+      valign: 'middle',
     },
     headStyles: {
       fillColor: [30, 27, 75],
@@ -1617,8 +1683,8 @@ const exportPDF = async () => {
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      2: { halign: 'center' },              // Quantité centrée
-      3: { halign: 'right', fontStyle: 'bold', textColor: [249, 115, 22] }, // Total aligné à droite, en orange
+      2: { halign: 'center' },
+      3: { halign: 'right', fontStyle: 'bold', textColor: [249, 115, 22] },
     },
     didDrawPage: () => drawHeaderFooter(),
   });
@@ -1657,7 +1723,7 @@ const exportPDF = async () => {
   <div style={{ padding: '22px 16px 10px 16px', flexShrink: 0 }}>
     <div style={{
       background: 'white', borderRadius: 16, padding: '14px 16px', display: 'flex',
-      justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 24px rgba(254, 241, 241, 0.25)',
+      justifyContent: 'center', alignItems: 'center', boxShadow: '0 8px 24px rgba(200, 31, 31, 0.25)',
     }}>
       <img src={logo} alt="Powertech" style={{ width: '100%', height: 'auto', display: 'block' }} />
     </div>
@@ -2286,10 +2352,15 @@ const exportPDF = async () => {
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fournisseur</label>
-                <select style={styles.input} value={newProduct.fournisseurId || ''} onChange={e => setNewProduct({ ...newProduct, fournisseurId: e.target.value })}>
-                  <option value="">-- Aucun --</option>
-                  {fournisseurs.map(f => <option key={f.id} value={f.id}>{f.nom}</option>)}
-                </select>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck="false"
+                  style={styles.input}
+                  value={newProduct.fournisseurNom}
+                  onChange={e => setNewProduct({ ...newProduct, fournisseurNom: e.target.value })}
+                  placeholder="Nom du fournisseur"
+                />
               </div>
               <div style={styles.gap2}>
                 <button type="submit" style={styles.btnPrimary}>✅ Ajouter</button>
@@ -2313,10 +2384,15 @@ const exportPDF = async () => {
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fournisseur</label>
-                <select style={styles.input} value={restockSupplier} onChange={e => setRestockSupplier(e.target.value)}>
-                  <option value="">-- Sélectionner un fournisseur --</option>
-                  {fournisseurs.map(f => <option key={f.id} value={f.nom}>{f.nom}</option>)}
-                </select>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  spellCheck="false"
+                  style={styles.input}
+                  value={restockSupplier}
+                  onChange={e => setRestockSupplier(e.target.value)}
+                  placeholder="Nom du fournisseur"
+                />
               </div>
               <div style={styles.gap2}>
                 <button type="submit" style={styles.btnPrimary} disabled={restockLoading}>
