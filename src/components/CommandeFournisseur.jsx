@@ -624,7 +624,12 @@ export default function CommandeFournisseur() {
                 <tr><td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--text-primary)' }}>Sous-total :</td><td style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>{devisDetail.sousTotal?.toLocaleString()} FCFA</td></tr>
                 <tr><td colSpan="3" style={{ textAlign: 'right', color: 'var(--text-primary)' }}>Frais de transport :</td><td style={{ color: 'var(--text-primary)' }}>{devisDetail.fraisTransport?.toLocaleString()} FCFA</td></tr>
                 <tr><td colSpan="3" style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--text-primary)' }}>Total :</td><td style={{ fontWeight: 'bold', color: '#f97316' }}>{devisDetail.total?.toLocaleString()} FCFA</td></tr>
-                <tr><td colSpan="4" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Délai de livraison : {devisDetail.delaiLivraison} jours</td></tr>
+                <tr>
+  <td colSpan="4" style={{ fontSize: '12px', color: 'var(--text-muted)', paddingTop: 8 }}>
+    <strong>Incoterm :</strong> {devisDetail.incoterm || 'Non précisé'}
+  </td>
+</tr>
+<tr><td colSpan="4" style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Délai de livraison : {devisDetail.delaiLivraison} jours</td></tr>
               </tfoot>
             </table>
             <div style={{ marginTop: '20px', textAlign: 'center', display: 'flex', gap: '12px', justifyContent: 'center' }}>

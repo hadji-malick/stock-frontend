@@ -12,7 +12,6 @@ import ConfirmationModal from './components/ui/ConfirmationModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from './assets/logo.png';
-import bgAccueil from './assets/acceuil.png';
 import FournisseurManagement from './components/FournisseurManagement';
 import CommandeFournisseur from './components/CommandeFournisseur';
 import { QRCodeSVG } from 'qrcode.react';
@@ -141,7 +140,6 @@ const DASH_TOKENS = {
   },
 };
 
-const SERIES_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#f43f5e'];
 const RANK_BG_DARK  = ['#1e3a5f', '#1a2e3a', '#2d1b46', '#1a3a2a', '#3a1a1a'];
 const RANK_TX_DARK  = ['#60a5fa', '#22d3ee', '#a78bfa', '#34d399', '#fb7185'];
 const RANK_BG_LIGHT = ['#dbeafe', '#cffafe', '#ede9fe', '#d1fae5', '#ffe4e6'];
@@ -466,8 +464,10 @@ function CartComponent({ produits, user, onSaleComplete }) {
 
       <div class="divider"></div>
 
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin:3px 0;"><span>Sous-total HT</span><span>${(data.totalHT || 0).toLocaleString('fr-FR')} FCFA</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin:3px 0;"><span>TVA (18%)</span><span>${(data.tva || 0).toLocaleString('fr-FR')} FCFA</span></div>
       <div class="total-row">
-        <span>TOTAL</span>
+        <span>TOTAL TTC</span>
         <span>${data.total.toLocaleString('fr-FR')} FCFA</span>
       </div>
 
@@ -482,7 +482,7 @@ function CartComponent({ produits, user, onSaleComplete }) {
         📞 (+221) 766432045
       </div>
     </div>
-    <script>window.onload=function(){window.print();setTimeout(()=>window.close(),1000)}<\/script>
+    <script>window.onload=function(){window.print();setTimeout(()=>window.close(),1000)}</script>
     </body></html>`;
 
     const win = window.open('', '_blank', 'width=400,height=650,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
@@ -693,7 +693,7 @@ function CashClosureComponent({ onCloture }) {
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) setCurrentPage(totalPages);
-  }, [historiqueClotures.length]);
+  }, [historiqueClotures.length, currentPage, totalPages]);
 
   const cash = { blue: '#3b82f6', ind: '#6366f1', green: '#10b981', amber: '#f59e0b', red: '#ef4444', gray: '#94a3b8' };
 
@@ -901,135 +901,8 @@ function CashClosureComponent({ onCloture }) {
   );
 }
 // ==================== COMPOSANT FORMULAIRE SEPARÉ ====================
-function UserForm({ 
-  initialData, 
-  initialErrors, 
-  onSubmit, 
-  submitLabel, 
-  onCancel,
-  updateParentData,
-  updateParentErrors
-}) {
-  // État local pour le formulaire
-  const [localData, setLocalData] = useState(initialData);
-  const [localErrors, setLocalErrors] = useState(initialErrors);
-
-  // Mettre à jour quand les props changent (ouverture du modal)
-  useEffect(() => {
-    setLocalData(initialData);
-    setLocalErrors(initialErrors);
-  }, [initialData, initialErrors]);
-
-  // Gestionnaire de changement
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Mettre à jour l'état local
-    setLocalData(prev => ({ ...prev, [name]: value }));
-    
-    // Mettre à jour le parent
-    if (updateParentData) {
-      updateParentData(name, value);
-    }
-    
-    // Effacer l'erreur du champ
-    if (localErrors[name]) {
-      const newErrors = { ...localErrors, [name]: undefined };
-      setLocalErrors(newErrors);
-      if (updateParentErrors) {
-        updateParentErrors(newErrors);
-      }
-    }
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(e, localData);
-  };
-
-  const errInput = (field) => ({
-    ...styles.input,
-    border: localErrors[field] ? '1.5px solid #ef4444' : styles.input.border,
-    background: localErrors[field] ? '#ef44440a' : styles.input.background,
-  });
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Nom *</label>
-        <input 
-          type="text"
-          name="nom"
-          style={errInput('nom')} 
-          value={localData.nom} 
-          onChange={handleChange}
-          placeholder="Jean Dupont"
-          autoFocus
-        />
-        {localErrors.nom && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.nom}</div>}
-      </div>
-
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Email *</label>
-        <input 
-          type="email" 
-          name="email"
-          style={errInput('email')} 
-          value={localData.email} 
-          onChange={handleChange}
-          placeholder="nom@gmail.com" 
-        />
-        {localErrors.email && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.email}</div>}
-      </div>
-
-      <div style={styles.formGroup}>
-        <label style={styles.label}>
-          Mot de passe {submitLabel === 'Enregistrer' ? '(laisser vide pour ne pas changer)' : '*'}
-        </label>
-        <input 
-          type="password" 
-          name="motDePasse"
-          style={errInput('motDePasse')} 
-          value={localData.motDePasse} 
-          onChange={handleChange}
-          placeholder={submitLabel === 'Enregistrer' ? 'Laisser vide pour ne pas changer' : '••••••••'}
-        />
-        {localErrors.motDePasse && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px' }}>{localErrors.motDePasse}</div>}
-      </div>
-
-      <div style={styles.formGroup}>
-        <label style={styles.label}>Rôle *</label>
-        <select 
-          name="role"
-          style={styles.input} 
-          value={localData.role} 
-          onChange={handleChange}
-        >
-          <option value="VENDEUR">Caissier</option>
-          <option value="STOCK_MANAGER">Stockeur</option>
-          <option value="TECHNICO_COMMERCIAL">Technico-commercial</option>
-          <option value="ADMIN">Chef de showroom</option>
-          <option value="DIRECTEUR">Directeur Powertech</option>
-        </select>
-      </div>
-
-      <div style={styles.gap2}>
-        <button type="submit" style={styles.btnPrimary}>
-          {submitLabel === 'Créer' ? '✅ Créer' : '✅ Enregistrer'}
-        </button>
-        <button 
-          type="button" 
-          onClick={onCancel} 
-          style={{ ...styles.btnPrimary, background: '#94a3b8' }}
-        >
-          Annuler
-        </button>
-      </div>
-    </form>
-  );
-}
-
 // ==================== GESTION UTILISATEURS ====================
+
 // ==================== GESTION UTILISATEURS ====================
 function UserManagementComponent() {
   const { user: currentUser } = useAuth();
@@ -1231,6 +1104,7 @@ function UserManagementComponent() {
 }
 // ==================== HELPERS HISTORIQUE (avatar vendeur, stats) ====================
 const HIST_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
+const TAUX_TVA = 0.18;
 const colorForVendeur = (name = '') => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
@@ -1294,20 +1168,6 @@ const formatFCFA = (n) => {
   const num = Math.round(n || 0);
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 };
-// ==================== SECTION EN CONSTRUCTION (placeholder) ====================
-function SectionEnConstruction({ titre, description }) {
-  return (
-    <div style={{ ...styles.card, textAlign: 'center', padding: '70px 30px' }}>
-      <div style={{
-        width: 64, height: 64, borderRadius: '50%', background: '#6366f11c', color: '#6366f1',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 18px',
-      }}>🚧</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{titre}</div>
-      <div style={{ fontSize: 14, color: 'var(--text-muted)', maxWidth: 400, margin: '0 auto' }}>{description}</div>
-    </div>
-  );
-}
-
 // ==================== COMPOSANT PRINCIPAL ====================
 function StockManagement() {
   const { user, logout } = useAuth();
@@ -1351,6 +1211,7 @@ function StockManagement() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchProduits(); fetchStats(); fetchVentes(); fetchCAMois(); fetchFournisseurs(); }, [refresh]);
 
   const playSound = (type) => {
@@ -2876,7 +2737,111 @@ function CommandeClientPanel({ produits, user }) {
     setPanier(prev => prev.map(i => i.id === id ? { ...i, quantite: newQty } : i));
   };
 
-  const total = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+  const totalHT = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+  const tva = totalHT * TAUX_TVA;
+  const total = totalHT + tva;
+
+  const genererFactureProForma = async () => {
+    if (!panier.length) { toast.error('Ajoutez au moins un produit'); return; }
+    try {
+      const [header, footer] = await Promise.all([
+        imageToDataUrl(factureHeader),
+        imageToDataUrl(factureFooter),
+      ]);
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const headerH = (header.height / header.width) * pageWidth;
+      const footerH = (footer.height / footer.width) * pageWidth;
+
+      doc.addImage(header.dataUrl, 'PNG', 0, 0, pageWidth, headerH);
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 27, 75);
+      doc.text('FACTURE PRO FORMA', pageWidth / 2, headerH + 16, { align: 'center' });
+
+      const numeroPF = 'PF-' + Date.now();
+      const dateEmission = new Date();
+      const dateValidite = new Date(dateEmission.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100);
+      let yInfo = headerH + 26;
+      doc.text(`N° ${numeroPF}`, 14, yInfo); yInfo += 6;
+      doc.text(`Date d'émission : ${dateEmission.toLocaleDateString('fr-FR')}`, 14, yInfo); yInfo += 6;
+      doc.text(`Valable jusqu'au : ${dateValidite.toLocaleDateString('fr-FR')}`, 14, yInfo); yInfo += 6;
+      doc.text(`Technico-commercial : ${user?.nom || ''}`, 14, yInfo); yInfo += 6;
+      if (clientNom) { doc.text(`Client : ${clientNom}`, 14, yInfo); yInfo += 6; }
+
+      const totalHTProForma = Math.round(panier.reduce((s, i) => s + i.prixVente * i.quantite, 0));
+      const tvaProForma = Math.round(totalHTProForma * 0.18);
+      const ttc = totalHTProForma + tvaProForma;
+
+      autoTable(doc, {
+        head: [['Produit', 'Quantité', 'Prix unitaire HT', 'Total HT']],
+        body: panier.map(l => [
+          l.nom,
+          l.quantite.toString(),
+          `${formatFCFA(l.prixVente)} FCFA`,
+          `${formatFCFA(l.prixVente * l.quantite)} FCFA`
+        ]),
+        startY: yInfo + 6,
+        margin: { left: 14, right: 14 },
+        tableWidth: 182,
+        styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 7, lineColor: [226, 232, 240], lineWidth: 0.2, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9.5 },
+        columnStyles: {
+          0: { cellWidth: 62 },
+          1: { cellWidth: 30, halign: 'center' },
+          2: { cellWidth: 45, halign: 'right' },
+          3: { cellWidth: 45, halign: 'right', fontStyle: 'bold' },
+        },
+      });
+
+      const boxW = 90;
+      const boxX = pageWidth - 14 - boxW;
+      let y = doc.lastAutoTable.finalY + 14;
+
+      doc.setDrawColor(226, 232, 240);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(boxX, y, boxW, 44, 3, 3, 'FD');
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('Sous-total HT', boxX + 8, y + 12);
+      doc.text(`${formatFCFA(totalHTProForma)} FCFA`, boxX + boxW - 8, y + 12, { align: 'right' });
+
+      doc.text('TVA (18%)', boxX + 8, y + 22);
+      doc.text(`${formatFCFA(tvaProForma)} FCFA`, boxX + boxW - 8, y + 22, { align: 'right' });
+
+      doc.setDrawColor(30, 27, 75);
+      doc.line(boxX + 8, y + 27, boxX + boxW - 8, y + 27);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12.5);
+      doc.setTextColor(30, 27, 75);
+      doc.text('TOTAL TTC', boxX + 8, y + 37);
+      doc.text(`${formatFCFA(ttc)} FCFA`, boxX + boxW - 8, y + 37, { align: 'right' });
+
+      y += 56;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        "Ce document est une facture pro forma, sans valeur comptable ni fiscale. Il ne constitue pas une facture définitive et ne peut servir de preuve de paiement.",
+        14, y, { maxWidth: 182 }
+      );
+
+      doc.addImage(footer.dataUrl, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
+      doc.save(`facture_proforma_${numeroPF}.pdf`);
+    } catch (err) {
+      toast.error('Erreur lors de la génération du document');
+      console.error(err);
+    }
+  };
 
   const creerCommande = async () => {
     if (!panier.length) { toast.error('Ajoutez au moins un produit'); return; }
@@ -3038,9 +3003,13 @@ function CommandeClientPanel({ produits, user }) {
             </div>
           )}
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '14px 0', borderTop: '2px solid var(--border-color)', marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>Total</span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{total.toLocaleString('fr-FR')} FCFA</span>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Sous-total HT</span><span>{totalHT.toLocaleString('fr-FR')} FCFA</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>TVA (18%)</span><span>{tva.toLocaleString('fr-FR')} FCFA</span></div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
+            <span style={{ fontSize: 14, color: 'var(--text-muted)', fontWeight: 600 }}>Total TTC</span>
+            <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{total.toLocaleString()} <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>FCFA</span></span>
           </div>
 
           <button
@@ -3050,6 +3019,10 @@ function CommandeClientPanel({ produits, user }) {
           >
             {submitting ? 'Création...' : '✅ Créer la commande'}
           </button>
+          <button
+            onClick={genererFactureProForma}
+            style={{ ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '12px', fontSize: 13.5, background: '#6366f1', marginTop: 10 }}
+          >🧾 Générer une facture pro forma</button>
         </div>
       </div>
     </div>
@@ -3155,8 +3128,10 @@ function CaissierPanel({ user }) {
               </div>
             ))}
             <div style={{ borderTop: '1px dashed #cbd5e1', margin: '10px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, borderTop: '2px solid #1e1b4b', paddingTop: 8 }}>
-              <span>TOTAL</span><span>{result.total.toLocaleString('fr-FR')} FCFA</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0', color: '#64748b' }}><span>Sous-total HT</span><span>{result.totalHT?.toLocaleString('fr-FR')} FCFA</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '2px 0', color: '#64748b' }}><span>TVA (18%)</span><span>{result.tva?.toLocaleString('fr-FR')} FCFA</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 17, borderTop: '2px solid #1e1b4b', paddingTop: 8, marginTop: 6 }}>
+              <span>TOTAL TTC</span><span>{result.total.toLocaleString('fr-FR')} FCFA</span>
             </div>
             <div style={{ marginTop: 14, fontSize: 11, color: '#94a3b8' }}>
               <strong>Paiement</strong>
@@ -3248,7 +3223,9 @@ function CaissierPanel({ user }) {
   }
 
   // ===== ÉCRAN RÉCAP AVANT PAIEMENT =====
-  const total = commande.montantTotal || 0;
+  const totalHT = commande.montantTotal || 0;
+  const tva = totalHT * TAUX_TVA;
+  const total = totalHT + tva;
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
       <div style={{ ...styles.card, maxWidth: 480, width: '100%' }}>
@@ -3271,8 +3248,12 @@ function CaissierPanel({ user }) {
           ))}
         </div>
 
+        <div style={{ borderTop: '1px dashed var(--border-color)', paddingTop: 10, marginBottom: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Sous-total HT</span><span>{totalHT.toLocaleString('fr-FR')} FCFA</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>TVA (18%)</span><span>{tva.toLocaleString('fr-FR')} FCFA</span></div>
+        </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 20, borderTop: '2px solid var(--text-primary)', paddingTop: 12, marginBottom: 20, color: 'var(--text-primary)' }}>
-          <span>TOTAL</span><span>{total.toLocaleString('fr-FR')} FCFA</span>
+          <span>TOTAL TTC</span><span>{total.toLocaleString('fr-FR')} FCFA</span>
         </div>
 
         <button
@@ -3564,6 +3545,91 @@ function RapportActivitePanel({ user }) {
     </div>
   );
 }
+function DetailRapportModal({ rapport, onClose }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const isTechnico = rapport.role === 'TECHNICO_COMMERCIAL';
+
+  useEffect(() => {
+    const fetchDetail = async () => {
+      setLoading(true);
+      try {
+        const dateStr = typeof rapport.date === 'string' ? rapport.date.slice(0, 10) : toDateKey(rapport.date);
+        const url = isTechnico
+          ? `http://localhost:8080/api/commandes-client/technico/${encodeURIComponent(rapport.utilisateurNom)}/date/${dateStr}`
+          : `http://localhost:8080/api/bons-retrait/stockeur/${encodeURIComponent(rapport.utilisateurNom)}/date/${dateStr}`;
+        const res = await axios.get(url);
+        setItems(res.data);
+      } catch (err) {
+        toast.error('Erreur lors du chargement des détails');
+      } finally { setLoading(false); }
+    };
+    fetchDetail();
+  }, [rapport, isTechnico]);
+
+  const color = isTechnico ? '#14b8a6' : '#f59e0b';
+
+  return (
+    <div style={styles.modal}>
+      <div style={{ ...styles.modalContent, maxWidth: 640 }}>
+        <div style={styles.flexBetween}>
+          <div>
+            <h3 style={{ color: 'var(--text-primary)', margin: 0 }}>
+              {isTechnico ? '📝 Commandes créées' : '📦 Bons de retrait validés'}
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              {rapport.utilisateurNom} — {new Date(rapport.date).toLocaleDateString('fr-FR')}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '22px', cursor: 'pointer', color: 'var(--text-primary)' }}>✖️</button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)' }}>Chargement...</div>
+        ) : items.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 50, color: 'var(--text-muted)' }}>Aucune donnée trouvée pour ce jour</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '60vh', overflowY: 'auto' }}>
+            {items.map((item, idx) => {
+              const entete = isTechnico ? item.commande : item.bonRetrait;
+              const code = isTechnico ? entete.code : entete.code;
+              const clientNom = isTechnico ? entete.clientNom : entete.commandeClient?.clientNom;
+              return (
+                <div key={idx} style={{ border: '1px solid var(--border-color)', borderRadius: 16, overflow: 'hidden' }}>
+                  <div style={{
+                    padding: '10px 16px', background: color + '14', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {isTechnico ? code : `Commande ${entete.commandeClient?.code} — BR ${code}`}
+                    </div>
+                    {clientNom && <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{clientNom}</div>}
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...styles.th, fontSize: 10 }}>Produit</th>
+                        <th style={{ ...styles.th, fontSize: 10, textAlign: 'center' }}>Qté</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {item.lignes.map(l => (
+                        <tr key={l.id}>
+                          <td style={{ ...styles.td, fontSize: 13 }}>{l.produit?.nom}</td>
+                          <td style={{ ...styles.td, fontSize: 13, textAlign: 'center' }}>{l.quantite}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 function ClotureShowroomPanel() {
   const [commandesClient, setCommandesClient] = useState([]);
   const [bonsEnAttente, setBonsEnAttente] = useState([]);
@@ -3571,6 +3637,7 @@ function ClotureShowroomPanel() {
   const [cloturesCaisse, setCloturesCaisse] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [rapportDetail, setRapportDetail] = useState(null);
 
   const CS = { blue: '#3b82f6', ind: '#6366f1', teal: '#14b8a6', amber: '#f59e0b', green: '#10b981', red: '#ef4444', gray: '#94a3b8' };
 
@@ -3791,7 +3858,16 @@ function ClotureShowroomPanel() {
           <>
             <div style={{ overflowX: 'auto', borderRadius: 14, border: '1px solid var(--border-color)' }}>
               <table style={styles.table}>
-                <thead><tr><th style={styles.th}>Date</th><th style={styles.th}>Rôle</th><th style={styles.th}>Utilisateur</th><th style={styles.th}>Compteur</th><th style={styles.th}>Commentaire</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Rôle</th>
+                    <th style={styles.th}>Utilisateur</th>
+                    <th style={styles.th}>Compteur</th>
+                    <th style={styles.th}>Commentaire</th>
+                    <th style={styles.th}>Actions</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {rapports.map(r => {
                     const meta = ROLE_META[r.role] || { label: r.role, color: CS.gray };
@@ -3805,6 +3881,12 @@ function ClotureShowroomPanel() {
                         <td style={styles.td}>{r.utilisateurNom}</td>
                         <td style={styles.td}><strong>{r.compteur}</strong> <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 500 }}>{unite}</span></td>
                         <td style={styles.td}>{r.commentaire || '-'}</td>
+                        <td style={styles.td}>
+                          <button
+                            onClick={() => setRapportDetail(r)}
+                            style={{ ...styles.btnSecondary, display: 'flex', alignItems: 'center', gap: 6 }}
+                          >👁️ Voir détails</button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -3821,6 +3903,10 @@ function ClotureShowroomPanel() {
           </>
         )}
       </div>
+
+      {rapportDetail && (
+        <DetailRapportModal rapport={rapportDetail} onClose={() => setRapportDetail(null)} />
+      )}
     </div>
   );
 }

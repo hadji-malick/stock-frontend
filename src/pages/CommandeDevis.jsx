@@ -3,6 +3,15 @@ import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
+const INCOTERMS = [
+  { code: 'EXW', label: 'EXW — Ex Works', desc: "La marchandise est mise à disposition dans vos locaux. Le transport, l'assurance et les formalités douanières sont à la charge de Powertech." },
+  { code: 'FCA', label: 'FCA — Free Carrier', desc: "Vous livrez la marchandise dédouanée à l'export au transporteur désigné par Powertech, chargement inclus." },
+  { code: 'CIF', label: 'CIF — Cost, Insurance and Freight', desc: "Vous prenez en charge le transport et l'assurance jusqu'au port de destination." },
+  { code: 'CIP', label: 'CIP — Carriage and Insurance Paid To', desc: "Vous prenez en charge le transport et l'assurance jusqu'au lieu convenu, quel que soit le mode de transport." },
+  { code: 'DAP', label: 'DAP — Delivered At Place', desc: "Vous livrez jusqu'au lieu convenu. Les droits de douane restent à la charge de Powertech." },
+  { code: 'DDP', label: 'DDP — Delivered Duty Paid', desc: "Vous livrez tout compris, y compris les droits de douane." },
+];
+
 export default function CommandeDevis() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -11,6 +20,7 @@ export default function CommandeDevis() {
   const [commande, setCommande] = useState(null);
   const [lignes, setLignes] = useState([]);
   const [prix, setPrix] = useState({});
+  const [incoterm, setIncoterm] = useState('');
   const [fraisTransport, setFraisTransport] = useState(0);
   const [delaiLivraison, setDelaiLivraison] = useState(5);
   const [dateValidite, setDateValidite] = useState('');
@@ -50,6 +60,10 @@ export default function CommandeDevis() {
       toast.error('Veuillez indiquer un prix pour chaque produit');
       return;
     }
+    if (!incoterm) {
+      toast.error("Veuillez sélectionner un Incoterm");
+      return;
+    }
     if (!dateValidite) {
       toast.error('Veuillez indiquer une date de validité du devis');
       return;
@@ -59,6 +73,7 @@ export default function CommandeDevis() {
     try {
       await axios.post(`http://localhost:8080/api/commandes/devis/${token}`, {
         prix: prix,
+        incoterm: incoterm,
         fraisTransport: parseFloat(fraisTransport) || 0,
         delaiLivraisonPropose: parseInt(delaiLivraison) || 5,
         dateValidite: dateValidite,
@@ -76,6 +91,7 @@ export default function CommandeDevis() {
   if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>Chargement...</div>;
 
   const total = lignes.reduce((sum, l) => sum + (l.quantite * (prix[l.produit.id] || 0)), 0) + (parseFloat(fraisTransport) || 0);
+  const incotermSelectionne = INCOTERMS.find(i => i.code === incoterm);
 
   const styles = {
     container: { maxWidth: '950px', margin: '0 auto', padding: '20px', fontFamily: 'Arial, sans-serif' },
@@ -86,12 +102,14 @@ export default function CommandeDevis() {
     td: { padding: '12px', borderBottom: '1px solid #e2e8f0' },
     inputPrix: { width: '140px', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', textAlign: 'center' },
     input: { width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px' },
+    select: { width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', background: 'white' },
     formGroup: { marginBottom: '16px' },
     label: { fontWeight: 'bold', display: 'block', marginBottom: '5px' },
     textarea: { width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '8px', marginTop: '5px', fontFamily: 'Arial' },
     btnPrimary: { background: '#f97316', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px', marginRight: '10px' },
     btnSecondary: { background: '#e2e8f0', color: '#334155', border: 'none', padding: '12px 24px', borderRadius: '8px', cursor: 'pointer', fontSize: '16px' },
-    totalRow: { color: '#f97316', fontWeight: 'bold', fontSize: '18px' }
+    totalRow: { color: '#f97316', fontWeight: 'bold', fontSize: '18px' },
+    incotermCard: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '14px 16px', marginTop: '10px', fontSize: '13px', color: '#7c2d12' }
   };
 
   return (
@@ -141,7 +159,22 @@ export default function CommandeDevis() {
           </table>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '20px' }}>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Incoterm — conditions de livraison *</label>
+          <select style={styles.select} value={incoterm} onChange={e => setIncoterm(e.target.value)}>
+            <option value="">-- Sélectionner un Incoterm --</option>
+            {INCOTERMS.map(i => (
+              <option key={i.code} value={i.code}>{i.label}</option>
+            ))}
+          </select>
+          {incotermSelectionne && (
+            <div style={styles.incotermCard}>
+              <strong>{incotermSelectionne.code}</strong> — {incotermSelectionne.desc}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '10px' }}>
           <div style={styles.formGroup}>
             <label style={styles.label}>Frais de transport (FCFA)</label>
             <input type="number" min="0" style={styles.input} value={fraisTransport} onChange={e => setFraisTransport(e.target.value)} />
