@@ -11,6 +11,7 @@ import {
 import ConfirmationModal from './components/ui/ConfirmationModal';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import logo from './assets/logo.png';
 import FournisseurManagement from './components/FournisseurManagement';
 import CommandeFournisseur from './components/CommandeFournisseur';
@@ -29,6 +30,9 @@ import { validate, required, emailRequired, minLength, positiveNumber, positiveI
 import factureHeader from './assets/facture-header.png';
 import factureFooter from './assets/facture-footer.png';
 import PaymentModal from './components/PaymentModal';
+import { addToQueue, getQueue, removeFromQueue, queueLength } from './utils/offlineQueue';
+import { useOnlineStatus } from './hooks/useOnlineStatus';
+import { printReceiptThermal, listPrinters } from './utils/qzPrint';
 
 
 // ==================== HELPER DATE — clé stable YYYY-MM-DD ====================
@@ -397,18 +401,36 @@ function CartComponent({ produits, user, onSaleComplete }) {
   const validerVente = async (paiements) => {
     if (!panier.length) { toast.error('Panier vide'); return; }
     setLoading(true);
+    const items = panier.map(i => ({ produitId: i.id, quantite: i.quantite }));
+    const payload = { items, vendeur: user?.nom || 'Vendeur', commentaire: '', paiements };
+
+    if (!navigator.onLine) {
+      addToQueue({ type: 'vente-directe', payload });
+      toast.success('📥 Vente enregistrée hors-ligne — sera synchronisée au retour du réseau');
+      setPanier([]);
+      setShowPaymentModal(false);
+      setLoading(false);
+      if (onSaleComplete) onSaleComplete();
+      return;
+    }
+
     try {
-      const items = panier.map(i => ({ produitId: i.id, quantite: i.quantite }));
-      const res = await axios.post('http://localhost:8080/api/produits/vente-multi', {
-        items, vendeur: user?.nom || 'Vendeur', commentaire: '', paiements
-      });
+      const res = await axios.post('http://localhost:8080/api/produits/vente-multi', payload);
       toast.success(`✅ Vente validée ! Facture: ${res.data.numeroFacture}`, { duration: 5000, icon: '🧾' });
       setPanier([]);
       setShowPaymentModal(false);
       if (onSaleComplete) onSaleComplete();
       imprimerTicketSilencieux(res.data, paiements);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur');
+      if (!err.response) {
+        // réseau → mettre en file
+        addToQueue({ type: 'vente-directe', payload });
+        toast.success('📥 Réseau indisponible — vente mise en attente de synchronisation');
+        setPanier([]);
+        setShowPaymentModal(false);
+      } else {
+        toast.error(err.response?.data?.error || 'Erreur');
+      }
     } finally { setLoading(false); }
   };
 
@@ -1168,6 +1190,56 @@ const formatFCFA = (n) => {
   const num = Math.round(n || 0);
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 };
+
+function OfflineSyncManager() {
+  const online = useOnlineStatus();
+  const [pending, setPending] = useState(getQueue().length);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    const update = () => setPending(getQueue().length);
+    window.addEventListener('pt-offline-queue-changed', update);
+    return () => window.removeEventListener('pt-offline-queue-changed', update);
+  }, []);
+
+  useEffect(() => {
+    if (online && pending > 0) {
+      // perform sync
+      (async () => {
+        setSyncing(true);
+        const token = localStorage.getItem('token');
+        const queue = getQueue();
+        for (const item of queue) {
+          try {
+            if (item.type === 'vente-directe') {
+              await axios.post('http://localhost:8080/api/produits/vente-multi', item.payload, { headers: { Authorization: `Bearer ${token}` } });
+            } else if (item.type === 'encaissement') {
+              await axios.post(`http://localhost:8080/api/commandes-client/code/${item.code}/encaisser`, item.payload, { headers: { Authorization: `Bearer ${token}` } });
+            }
+            removeFromQueue(item.localId);
+          } catch (err) {
+            console.error('Échec sync', item.localId, err);
+            break;
+          }
+        }
+        setSyncing(false);
+        toast.success('Ventes hors-ligne synchronisées');
+      })();
+    }
+  }, [online, pending]);
+
+  if (online && pending === 0) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 2000,
+      background: online ? '#f59e0b' : '#ef4444', color: 'white', padding: '10px 18px', borderRadius: 30,
+      fontSize: 13, fontWeight: 700, boxShadow: '0 8px 24px rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', gap: 8,
+    }}>
+      {online ? (syncing ? '⏳ Synchronisation...' : `🟡 ${pending} vente(s) en attente`) : '🔴 Mode hors-ligne'}
+    </div>
+  );
+}
 // ==================== COMPOSANT PRINCIPAL ====================
 function StockManagement() {
   const { user, logout } = useAuth();
@@ -1182,7 +1254,7 @@ function StockManagement() {
   const [totalVentes, setTotalVentes] = useState(0);
   const [chiffreAffaire, setChiffreAffaire] = useState(0);
   const [caMois, setCaMois] = useState(0);
-  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
+  const [newProduct, setNewProduct] = useState({ reference: '', nom: '', marque: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
   const [productErrors, setProductErrors] = useState({});
   const [editErrors, setEditErrors] = useState({});
   const productRules = {
@@ -1312,9 +1384,9 @@ function StockManagement() {
   }
   try {
       const fournisseurId = getFournisseurIdByName(newProduct.fournisseurNom);
-      await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: fournisseurId || null });
+      await axios.post('http://localhost:8080/api/produits', { reference: newProduct.reference, nom: newProduct.nom, marque: newProduct.marque || '', prixVente: parseFloat(newProduct.prixVente), quantiteStock: parseInt(newProduct.quantiteStock), fournisseurId: fournisseurId || null });
       setRefresh(prev => prev + 1);
-      setNewProduct({ reference: '', nom: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
+      setNewProduct({ reference: '', nom: '', marque: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
     setShowStockModal(false); setActiveSection('stocks');
     toast.success('Produit ajouté avec succès');
   } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
@@ -1345,7 +1417,7 @@ function StockManagement() {
     e.preventDefault();
     if (!produitEdit) return;
     try {
-      await axios.put(`http://localhost:8080/api/produits/${produitEdit.id}`, { reference: produitEdit.reference, nom: produitEdit.nom, prixVente: produitEdit.prixVente, seuilAlerte: produitEdit.seuilAlerte || 5, fournisseurId: produitEdit.fournisseur?.id || null });
+      await axios.put(`http://localhost:8080/api/produits/${produitEdit.id}`, { reference: produitEdit.reference, nom: produitEdit.nom, marque: produitEdit.marque || '', prixVente: produitEdit.prixVente, seuilAlerte: produitEdit.seuilAlerte || 5, fournisseurId: produitEdit.fournisseur?.id || null });
       setRefresh(prev => prev + 1); setShowEditModal(false); setProduitEdit(null); setActiveSection('stocks');
       toast.success('Produit modifié avec succès');
     } catch (err) { toast.error(err.response?.data?.error || 'Erreur lors de la modification'); }
@@ -1439,7 +1511,6 @@ const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
   { section: 'dashboard', label: 'Dashboard', icon: '📊' },
   { section: 'stocks', label: 'Gestion des stocks', icon: '📦' },
   { section: 'retraits', label: 'Bons de retrait', icon: '🧾' },
-  { section: 'commandes', label: 'Commandes', icon: '📦' },
   { section: 'historique', label: 'Historique', icon: '📜' },
   { section: 'rapport-activite', label: 'Mon rapport du jour', icon: '📊' },
   { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' },
@@ -1552,6 +1623,24 @@ const exportPDF = async () => {
 
   doc.save(`rapport_ventes_${new Date().toISOString().slice(0, 19)}.pdf`);
 };
+const exportExcel = () => {
+  const ventesFiltrees = getVentesFiltrees();
+  if (!ventesFiltrees.length) { toast.error('Aucune donnée à exporter'); return; }
+
+  const data = ventesFiltrees.map(v => ({
+    'Date': new Date(v.dateVente).toLocaleString('fr-FR'),
+    'Produit': v.produit?.nom || 'N/A',
+    'Quantité': v.quantite,
+    'Total (FCFA)': v.montantTotal,
+    'Vendeur': v.vendeur,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{ wch: 18 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 18 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ventes');
+  XLSX.writeFile(wb, `rapport_ventes_${new Date().toISOString().slice(0, 10)}.xlsx`);
+};
   const ventesFiltrees = getVentesFiltrees();
   const getSaleGroupKey = (sale) => {
     const hasFacture = sale.factureId !== undefined && sale.factureId !== null;
@@ -1575,6 +1664,7 @@ const exportPDF = async () => {
     <div style={styles.container}>
       <Toaster position="top-right" />
       <RealTimeNotification onNotification={handleWebsocketNotification} />
+      <OfflineSyncManager />
 
      {/* ===== SIDEBAR MODERNISÉE ===== */}
 <div style={{ 
@@ -2390,6 +2480,10 @@ const exportPDF = async () => {
                 <FieldError message={productErrors.nom} />
               </div>
               <div style={styles.formGroup}>
+                <label style={styles.label}>Marque</label>
+                <input style={styles.input} value={newProduct.marque || ''} onChange={e => setNewProduct({ ...newProduct, marque: e.target.value })} placeholder="Ex: DELL, HP, SAMSUNG" />
+              </div>
+              <div style={styles.formGroup}>
                 <label style={styles.label}>Prix (FCFA) *</label>
                 <input
                   type="number"
@@ -2493,6 +2587,10 @@ const exportPDF = async () => {
               <FieldError message={editErrors.nom} />
             </div>
             <div style={styles.formGroup}>
+              <label style={styles.label}>Marque</label>
+              <input style={styles.input} value={produitEdit.marque || ''} onChange={e => setProduitEdit({ ...produitEdit, marque: e.target.value })} placeholder="Ex: DELL, HP, SAMSUNG" />
+            </div>
+            <div style={styles.formGroup}>
               <label style={styles.label}>Prix (FCFA) *</label>
               <input
                 type="number"
@@ -2583,6 +2681,7 @@ const exportPDF = async () => {
           onClick={() => { setFiltreDateDebut(''); setFiltreDateFin(''); setFiltreVendeur(''); setFiltreProduit(''); }}
           style={{ ...styles.btnSecondary, height: '42px', padding: '0 18px', borderRadius: 30 }}
         >✖ Réinitialiser</button>
+        <button onClick={exportExcel} style={{ ...styles.btnPrimary, height: '42px', background: '#10b981' }}>📊 Export Excel</button>
         <button onClick={exportPDF} style={{ ...styles.btnPrimary, height: '42px', background: '#dc2626', marginLeft: 'auto' }}>📄 Export PDF</button>
       </div>
     </div>
@@ -2704,6 +2803,9 @@ function CommandeClientPanel({ produits, user }) {
   const [clientNom, setClientNom] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
+  const [printerName, setPrinterName] = useState(localStorage.getItem('printerName') || '');
+  const [showPrinterPicker, setShowPrinterPicker] = useState(false);
+  const [printers, setPrinters] = useState([]);
 
   const avatarColors = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
   const colorFor = (name = '') => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
@@ -3036,6 +3138,9 @@ function CaissierPanel({ user }) {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paying, setPaying] = useState(false);
   const [result, setResult] = useState(null);
+  const [printerName, setPrinterName] = useState(localStorage.getItem('printerName') || '');
+  const [showPrinterPicker, setShowPrinterPicker] = useState(false);
+  const [printers, setPrinters] = useState([]);
 
   const MODE_LABELS = { ESPECES: 'Espèces', WAVE: 'Wave', ORANGE_MONEY: 'Orange Money', CARTE: 'Carte bancaire' };
 
@@ -3059,19 +3164,79 @@ function CaissierPanel({ user }) {
 
   const encaisser = async (paiements) => {
     setPaying(true);
+    const payload = { paiements };
+    if (!navigator.onLine) {
+      addToQueue({ type: 'encaissement', code: commande.code, payload });
+      toast.success('📥 Paiement mis en attente — synchronisation au retour du réseau');
+      setShowPaymentModal(false);
+      setPaying(false);
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
         `http://localhost:8080/api/commandes-client/code/${commande.code}/encaisser`,
-        { paiements },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setResult({ ...res.data, paiements, commande, lignes });
       setShowPaymentModal(false);
       toast.success('Paiement encaissé avec succès');
     } catch (err) {
-      toast.error(err.response?.data?.error || "Erreur lors de l'encaissement");
+      if (!err.response) {
+        addToQueue({ type: 'encaissement', code: commande.code, payload });
+        toast.success('📥 Réseau indisponible — paiement mis en attente');
+        setShowPaymentModal(false);
+      } else {
+        toast.error(err.response?.data?.error || "Erreur lors de l'encaissement");
+      }
     } finally { setPaying(false); }
+  };
+
+  const choisirImprimante = async () => {
+    try {
+      const list = await listPrinters();
+      setPrinters(list);
+      setShowPrinterPicker(true);
+    } catch (err) {
+      toast.error("QZ Tray n'est pas lancé sur cet ordinateur");
+    }
+  };
+
+  const imprimerThermique = async () => {
+    try {
+      let chosenPrinter = printerName;
+      if (!chosenPrinter) {
+        // Try to discover printers via QZ Tray before failing
+        try {
+          const list = await listPrinters();
+          if (list && list.length > 0) {
+            setPrinters(list);
+            // Auto-select first available printer to simplify UX
+            chosenPrinter = list[0];
+            setPrinterName(chosenPrinter);
+            localStorage.setItem('printerName', chosenPrinter);
+            toast.success(`Imprimante sélectionnée : ${chosenPrinter}`);
+          } else {
+            toast.error("Aucune imprimante détectée. Lancez QZ Tray et reconnectez l'imprimante.");
+            return;
+          }
+        } catch (err) {
+          toast.error("QZ Tray n'est pas lancé sur cet ordinateur");
+          return;
+        }
+      }
+
+      await printReceiptThermal(chosenPrinter, {
+        numeroFacture: result.numeroFacture, caissier: user?.nom,
+        clientNom: result.commande.clientNom, details: result.details,
+        totalHT: result.totalHT, tva: result.tva, total: result.total, paiements: result.paiements,
+      });
+      toast.success('Ticket imprimé');
+    } catch (err) {
+      console.error('imprimerThermique error', err);
+      toast.error("Erreur d'impression — QZ Tray est-il lancé et l'imprimante disponible ?");
+    }
   };
 
   const nouvelleRecherche = () => {
@@ -3098,10 +3263,11 @@ function CaissierPanel({ user }) {
             <div style={{ fontSize: 17, fontWeight: 700, color: '#10b981', marginBottom: 6 }}>Paiement encaissé</div>
             <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 18 }}>Facture {result.numeroFacture}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'monospace', marginBottom: 18 }}>
-              {result.total.toLocaleString('fr-FR')} FCFA
+              {Math.round(result.total).toLocaleString('fr-FR')} FCFA
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => window.print()} style={{ ...styles.btnPrimary, flex: 1, justifyContent: 'center' }}>🖨️ Imprimer (reçu + 2 BR)</button>
+              <button onClick={imprimerThermique} style={{ ...styles.btnPrimary, flex: 1, justifyContent: 'center', background: '#6366f1' }}>🖨️ Ticket thermique</button>
               <button onClick={nouvelleRecherche} style={{ ...styles.btnPrimary, flex: 1, justifyContent: 'center', background: '#3b82f6' }}>🔎 Nouvelle recherche</button>
             </div>
           </div>
@@ -3282,6 +3448,9 @@ function StockeurPanel({ user }) {
   const [validated, setValidated] = useState(false);
   const [enAttente, setEnAttente] = useState([]);
   const [loadingListe, setLoadingListe] = useState(true);
+  const [printerName, setPrinterName] = useState(localStorage.getItem('printerName') || '');
+  const [showPrinterPicker, setShowPrinterPicker] = useState(false);
+  const [printers, setPrinters] = useState([]);
 
   useEffect(() => { fetchEnAttente(); }, []);
 
@@ -3469,7 +3638,20 @@ function StockeurPanel({ user }) {
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-primary)' }}>{br.code}</div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-primary)' }}>{br.code}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                      Imprimante: {printerName || '—'}
+                      <button
+                        onClick={async () => {
+                          try {
+                            const list = await listPrinters();
+                            const pick = window.prompt('Imprimantes disponibles:\n' + list.join('\n'));
+                            if (pick) { setPrinterName(pick); localStorage.setItem('printerName', pick); toast.success(`Imprimante : ${pick}`); }
+                          } catch (err) { toast.error("QZ Tray n'est pas lancé sur cet ordinateur"); }
+                        }}
+                        style={{ ...styles.btnSecondary, marginLeft: 8, padding: '6px 10px', fontSize: 12 }}
+                      >Choisir</button>
+                    </div>
                   <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                     Commande {br.commandeClient?.code} {br.commandeClient?.clientNom ? `— ${br.commandeClient.clientNom}` : ''}
                   </div>
@@ -3638,6 +3820,7 @@ function ClotureShowroomPanel() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [rapportDetail, setRapportDetail] = useState(null);
+  const [annulationLoading, setAnnulationLoading] = useState(null);
 
   const CS = { blue: '#3b82f6', ind: '#6366f1', teal: '#14b8a6', amber: '#f59e0b', green: '#10b981', red: '#ef4444', gray: '#94a3b8' };
 
@@ -3664,6 +3847,19 @@ function ClotureShowroomPanel() {
       setCloturesCaisse(hc.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
+  };
+
+  const annulerCommande = async (code) => {
+    if (!window.confirm(`Annuler la commande ${code} ?`)) return;
+    setAnnulationLoading(code);
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:8080/api/commandes-client/code/${code}/annuler`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      toast.success('Commande annulée');
+      fetchAll(true);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Erreur');
+    } finally { setAnnulationLoading(null); }
   };
 
   const todayKey = toDateKey(new Date());
@@ -3758,15 +3954,34 @@ function ClotureShowroomPanel() {
       {commandesStales.length > 0 && (
         <div style={{
           background: `linear-gradient(135deg, ${CS.red}14, ${CS.red}06)`, border: `1px solid ${CS.red}33`,
-          borderRadius: 16, padding: '16px 20px', display: 'flex', gap: 14, alignItems: 'center',
+          borderRadius: 16, padding: '16px 20px',
         }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: '50%', background: CS.red + '1c', color: CS.red,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
-          }}>⚠️</div>
-          <div style={{ fontSize: 13.5, color: 'var(--text-primary)' }}>
-            <strong>{commandesStales.length} commande{commandesStales.length > 1 ? 's' : ''} créée{commandesStales.length > 1 ? 's' : ''} un jour précédent n'{commandesStales.length > 1 ? 'ont' : 'a'} jamais été payée{commandesStales.length > 1 ? 's' : ''}.</strong>
-            <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>Vérifiez auprès du technico-commercial concerné.</div>
+          <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 12 }}>
+            <div style={{
+              width: 42, height: 42, borderRadius: '50%', background: CS.red + '1c', color: CS.red,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0,
+            }}>⚠️</div>
+            <div style={{ fontSize: 13.5, color: 'var(--text-primary)' }}>
+              <strong>{commandesStales.length} commande{commandesStales.length > 1 ? 's' : ''} en attente depuis un jour précédent.</strong>
+              <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>Vérifiez auprès du technico-commercial, ou annulez si le client ne reviendra pas.</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {commandesStales.map(c => (
+              <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-card)', borderRadius: 12, padding: '8px 14px' }}>
+                <div style={{ fontSize: 12.5 }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text-primary)' }}>{c.code}</span>
+                  <span style={{ color: 'var(--text-muted)', marginLeft: 8 }}>
+                    {c.technicoCommercialNom} — {new Date(c.dateCreation).toLocaleDateString('fr-FR')} — {c.montantTotal?.toLocaleString('fr-FR')} FCFA
+                  </span>
+                </div>
+                <button
+                  onClick={() => annulerCommande(c.code)}
+                  disabled={annulationLoading === c.code}
+                  style={{ background: CS.red + '1c', color: CS.red, border: 'none', borderRadius: 20, padding: '5px 14px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer' }}
+                >{annulationLoading === c.code ? '...' : '✖ Annuler'}</button>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -111,7 +111,7 @@ export default function CommandeDevis() {
     totalRow: { color: '#f97316', fontWeight: 'bold', fontSize: '18px' },
     incotermCard: { background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', padding: '14px 16px', marginTop: '10px', fontSize: '13px', color: '#7c2d12' }
   };
-
+  
   return (
     <div style={styles.container}>
       <div style={styles.header}>
