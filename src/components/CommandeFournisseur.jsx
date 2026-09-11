@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { notifyError } from '../utils/notify';
 import ExpeditionStatus from './ExpeditionStatus';
 
 // ==================== TOKENS PIPELINE (alignés sur DASH_TOKENS de App.js) ====================
@@ -201,7 +202,7 @@ export default function CommandeFournisseur() {
       toast.success('Date d\'expédition proposée avec succès');
       setShowDateModal(false);
       fetchCommandes();
-    } catch (err) { toast.error('Erreur'); }
+    } catch (err) { notifyError(err); }
   };
 
   const fetchFournisseurs = async () => {
@@ -247,7 +248,7 @@ export default function CommandeFournisseur() {
       setLigneTemp({ produitId: nouveauProduit.id, marque: nouveauProduit.marque || '', quantite: 1 });
       setShowNewProductModal(false);
       setNewProductTemp({ reference: '', nom: '', marque: '', prixVente: '', prixAchat: '', quantiteStock: 0 });
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur création produit'); }
+    } catch (err) { notifyError(err, 'Erreur création produit'); }
   };
 
   const ajouterLigne = () => {
@@ -286,7 +287,7 @@ export default function CommandeFournisseur() {
       setShowModal(false);
       setNewCommande({ fournisseurId: '', numero: '', commentaire: '', lignes: [] });
       fetchCommandes();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur lors de la création'); }
+    } catch (err) { notifyError(err, 'Erreur lors de la création'); }
     finally { setLoading(false); }
   };
 
@@ -296,7 +297,7 @@ export default function CommandeFournisseur() {
       await axios.put(`http://localhost:8080/api/commandes/${commandeId}/statut`, { statut: nouveauStatut }, { headers: { Authorization: `Bearer ${token}` } });
       toast.success(`Statut mis à jour : ${nouveauStatut}`);
       fetchCommandes();
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { notifyError(err); }
   };
 
   const openDetailModal = async (commande) => {
@@ -374,7 +375,7 @@ export default function CommandeFournisseur() {
       const token = localStorage.getItem('token');
       await axios.post(`http://localhost:8080/api/commandes/${commandeId}/envoyer-email`, {}, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('📧 Demande de devis envoyée au fournisseur');
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi'); }
+    } catch (err) { notifyError(err, 'Erreur lors de l\'envoi'); }
   };
 
   // ===== STYLES =====

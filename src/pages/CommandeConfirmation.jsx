@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { getErrorMessage } from '../utils/notify';
 import { useParams } from 'react-router-dom';
 
 export default function CommandeConfirmation() {
@@ -15,7 +16,7 @@ export default function CommandeConfirmation() {
         setMessage(res.data.message);
       } catch (err) {
         setStatus('error');
-        setMessage(err.response?.data?.error || 'Erreur lors de la confirmation');
+        setMessage(getErrorMessage(err, 'Erreur lors de la confirmation'));
       }
     };
     confirmerCommande();

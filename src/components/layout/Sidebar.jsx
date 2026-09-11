@@ -9,6 +9,7 @@ const menuItems = {
     { section: 'historique', label: 'Historique', icon: History },
     { section: 'cloture', label: 'Clôture de caisse', icon: Coins },
     { section: 'utilisateurs', label: 'Utilisateurs', icon: Users },
+    { section: 'zones', label: 'Zones de livraison', icon: Package },
   ],
   STOCK_MANAGER: [
     { section: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

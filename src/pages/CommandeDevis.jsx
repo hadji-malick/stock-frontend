@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { notifyError } from '../utils/notify';
 
 const INCOTERMS = [
   { code: 'EXW', label: 'EXW — Ex Works', desc: "La marchandise est mise à disposition dans vos locaux. Le transport, l'assurance et les formalités douanières sont à la charge de Powertech." },
@@ -43,7 +44,7 @@ export default function CommandeDevis() {
       setPrix(initialPrix);
       setLoading(false);
     } catch (err) {
-      toast.error('Erreur lors du chargement de la demande');
+      notifyError(err, 'Erreur lors du chargement de la demande');
       setLoading(false);
     }
   };
@@ -82,7 +83,7 @@ export default function CommandeDevis() {
       toast.success('Devis envoyé avec succès !');
       navigate('/confirmation-modification');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de l\'envoi du devis');
+      notifyError(err, 'Erreur lors de l\'envoi du devis');
     } finally {
       setSubmitting(false);
     }

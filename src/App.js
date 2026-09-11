@@ -3,6 +3,7 @@ import axios from 'axios';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import { Toaster, toast } from 'react-hot-toast';
+import { notifyError, getErrorMessage } from './utils/notify';
 import {
   AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -30,6 +31,7 @@ import { validate, required, emailRequired, minLength, positiveNumber, positiveI
 import factureHeader from './assets/facture-header.png';
 import factureFooter from './assets/facture-footer.png';
 import PaymentModal from './components/PaymentModal';
+import ZoneLivraisonManagement from './components/ZoneLivraisonManagement';
 import { addToQueue, getQueue, removeFromQueue, queueLength } from './utils/offlineQueue';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
 import { printReceiptThermal, listPrinters } from './utils/qzPrint';
@@ -57,7 +59,7 @@ const styles = {
     display: 'flex',
     minHeight: '100vh',
     background: 'var(--bg-primary)',
-    fontFamily: "'Inter', system-ui, sans-serif"
+    fontFamily: "'Inter', system-ui, sans-serif",
   },
   sidebar: {
     width: '280px',
@@ -429,7 +431,7 @@ function CartComponent({ produits, user, onSaleComplete }) {
         setPanier([]);
         setShowPaymentModal(false);
       } else {
-        toast.error(err.response?.data?.error || 'Erreur');
+        notifyError(err);
       }
     } finally { setLoading(false); }
   };
@@ -702,7 +704,7 @@ function CashClosureComponent({ onCloture }) {
       check();
       if (canSeeHistorique) fetchHistorique();
     } catch (err) {
-      const errorText = err.response?.data?.error || 'Erreur';
+      const errorText = getErrorMessage(err);
       toast.error(errorText);
       setMessage({ type: 'error', text: errorText });
     } finally { setLoading(false); }
@@ -971,7 +973,7 @@ function UserManagementComponent() {
       await axios.post('http://localhost:8080/api/auth/register', formData, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Utilisateur créé'); fetchUsers(); setShowModal(false);
       setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); setErrors({});
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { notifyError(err); }
   };
 
   const handleUpdate = async (e) => {
@@ -995,7 +997,7 @@ function UserManagementComponent() {
       await axios.put(`http://localhost:8080/api/auth/utilisateurs/${editingUser.id}`, updateData, { headers: { Authorization: `Bearer ${token}` } });
       toast.success('Utilisateur modifié'); fetchUsers(); setShowEditModal(false);
       setFormData({ nom: '', email: '', motDePasse: '', role: 'VENDEUR' }); setErrors({});
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { notifyError(err); }
   };
 
   const deleteUser = async (targetUser) => {
@@ -1015,7 +1017,7 @@ function UserManagementComponent() {
         const token = localStorage.getItem('token');
         await axios.delete(`http://localhost:8080/api/auth/utilisateurs/${targetUser.id}`, { headers: { Authorization: `Bearer ${token}` } });
         toast.success('Utilisateur supprimé'); fetchUsers();
-      } catch (err) { toast.error('Erreur'); }
+      } catch (err) { notifyError(err); }
     }
   };
 
@@ -1389,7 +1391,7 @@ function StockManagement() {
       setNewProduct({ reference: '', nom: '', marque: '', prixVente: '', quantiteStock: '', fournisseurNom: '' });
     setShowStockModal(false); setActiveSection('stocks');
     toast.success('Produit ajouté avec succès');
-  } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+  } catch (err) { notifyError(err); }
 };
 
   const deleteProduct = async () => {
@@ -1397,7 +1399,7 @@ function StockManagement() {
     try {
       await axios.delete(`http://localhost:8080/api/produits/${productToDelete}`);
       setRefresh(prev => prev + 1); toast.success('Produit supprimé');
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { notifyError(err); }
     finally { setShowDeleteConfirm(false); setProductToDelete(null); }
   };
 
@@ -1409,7 +1411,7 @@ function StockManagement() {
       const res = await axios.post(`http://localhost:8080/api/produits/${restockProductId}/entree`, { quantite: restockQuantity, fournisseur: restockSupplier || 'Inconnu', note: '' });
       toast.success(`✅ Réapprovisionné ! Nouveau stock: ${res.data.nouveauStock}`);
       setRefresh(prev => prev + 1); setRestockProductId(''); setRestockQuantity(1); setRestockSupplier(''); setShowStockModal(false);
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur'); }
+    } catch (err) { notifyError(err); }
     finally { setRestockLoading(false); }
   };
 
@@ -1420,7 +1422,7 @@ function StockManagement() {
       await axios.put(`http://localhost:8080/api/produits/${produitEdit.id}`, { reference: produitEdit.reference, nom: produitEdit.nom, marque: produitEdit.marque || '', prixVente: produitEdit.prixVente, seuilAlerte: produitEdit.seuilAlerte || 5, fournisseurId: produitEdit.fournisseur?.id || null });
       setRefresh(prev => prev + 1); setShowEditModal(false); setProduitEdit(null); setActiveSection('stocks');
       toast.success('Produit modifié avec succès');
-    } catch (err) { toast.error(err.response?.data?.error || 'Erreur lors de la modification'); }
+    } catch (err) { notifyError(err, 'Erreur lors de la modification'); }
   };
 
 // ===== IMPRIMER TICKET GROUPE =====
@@ -1497,6 +1499,7 @@ const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
       { section: 'cloture', label: 'Clôtures', icon: '💰' },
       { section: 'utilisateurs', label: 'Utilisateurs', icon: '👥' },
       { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' },
+      { section: 'zones', label: 'Zones de livraison', icon: '🚚' },
     ];
     if (role === 'DIRECTEUR') return [
       { section: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -1506,6 +1509,7 @@ const imprimerTicketGroupe = async (ventesGroupe, total, vendeur) => {
       { section: 'cloture', label: 'Clôtures', icon: '💰' },
       { section: 'utilisateurs', label: 'Utilisateurs', icon: '👥' },
       { section: 'fournisseurs', label: 'Fournisseurs', icon: '🏭' },
+      { section: 'zones', label: 'Zones de livraison', icon: '🚚' },
     ];
     if (role === 'STOCK_MANAGER') return [
   { section: 'dashboard', label: 'Dashboard', icon: '📊' },
@@ -1986,6 +1990,7 @@ const exportExcel = () => {
                 {activeSection === 'cloture' && 'Clôture de caisse'}
                 {activeSection === 'utilisateurs' && 'Utilisateurs'}
                 {activeSection === 'fournisseurs' && 'Gestion des fournisseurs'}
+                {activeSection === 'zones' && 'Zones de livraison'}
                 {activeSection === 'commandes' && 'Commandes fournisseurs'}
                 {activeSection === 'retraits' && 'Bons de retrait'}
                 {activeSection === 'commande-client' && 'Nouvelle commande client'}
@@ -2785,6 +2790,7 @@ const exportExcel = () => {
     : <CashClosureComponent onCloture={() => setRefresh(prev => prev + 1)} />
 )}        {activeSection === 'utilisateurs' && <UserManagementComponent />}
         {activeSection === 'fournisseurs' && <FournisseurManagement />}
+        {activeSection === 'zones' && <ZoneLivraisonManagement />}
         {activeSection === 'commandes'    && <CommandeFournisseur />}
         {activeSection === 'retraits' && <StockeurPanel user={user} />}
         {activeSection === 'commande-client' && <CommandeClientPanel produits={produits} user={user} />}
@@ -2806,6 +2812,12 @@ function CommandeClientPanel({ produits, user }) {
   const [printerName, setPrinterName] = useState(localStorage.getItem('printerName') || '');
   const [showPrinterPicker, setShowPrinterPicker] = useState(false);
   const [printers, setPrinters] = useState([]);
+  const [zones, setZones] = useState([]);
+  const [zoneId, setZoneId] = useState('');
+  const [adresseClient, setAdresseClient] = useState('');
+  const [contactClient, setContactClient] = useState('');
+  const [interlocuteur, setInterlocuteur] = useState('');
+  const [transporteur, setTransporteur] = useState('');
 
   const avatarColors = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
   const colorFor = (name = '') => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return avatarColors[Math.abs(h) % avatarColors.length]; };
@@ -2817,6 +2829,13 @@ function CommandeClientPanel({ produits, user }) {
     if (q > maxStock) q = maxStock;
     setQuantites({ ...quantites, [produitId]: q });
   };
+
+  useEffect(() => {
+    axios.get('http://localhost:8080/api/zones-livraison').then(res => setZones(res.data)).catch(() => {});
+  }, []);
+
+  const zoneSelectionnee = zones.find(z => z.id === parseInt(zoneId));
+  const fraisTransportSelectionne = zoneSelectionnee?.prixTransport || 0;
 
   const ajouterAuPanier = (produit) => {
     const qty = quantites[produit.id] || 1;
@@ -2839,7 +2858,8 @@ function CommandeClientPanel({ produits, user }) {
     setPanier(prev => prev.map(i => i.id === id ? { ...i, quantite: newQty } : i));
   };
 
-  const totalHT = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+  const totalProduitsHT = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+  const totalHT = totalProduitsHT + fraisTransportSelectionne;
   const tva = totalHT * TAUX_TVA;
   const total = totalHT + tva;
 
@@ -2877,18 +2897,22 @@ function CommandeClientPanel({ produits, user }) {
       doc.text(`Technico-commercial : ${user?.nom || ''}`, 14, yInfo); yInfo += 6;
       if (clientNom) { doc.text(`Client : ${clientNom}`, 14, yInfo); yInfo += 6; }
 
-      const totalHTProForma = Math.round(panier.reduce((s, i) => s + i.prixVente * i.quantite, 0));
+      const totalProduitsHT = panier.reduce((s, i) => s + i.prixVente * i.quantite, 0);
+      const totalHTProForma = Math.round(totalProduitsHT + fraisTransportSelectionne);
       const tvaProForma = Math.round(totalHTProForma * 0.18);
       const ttc = totalHTProForma + tvaProForma;
 
       autoTable(doc, {
         head: [['Produit', 'Quantité', 'Prix unitaire HT', 'Total HT']],
-        body: panier.map(l => [
-          l.nom,
-          l.quantite.toString(),
-          `${formatFCFA(l.prixVente)} FCFA`,
-          `${formatFCFA(l.prixVente * l.quantite)} FCFA`
-        ]),
+        body: [
+          ...panier.map(l => [
+            l.nom,
+            l.quantite.toString(),
+            `${formatFCFA(l.prixVente)} FCFA`,
+            `${formatFCFA(l.prixVente * l.quantite)} FCFA`
+          ]),
+          ...(fraisTransportSelectionne > 0 ? [[`Transport (${zoneSelectionnee?.nom})`, '1', `${formatFCFA(fraisTransportSelectionne)} FCFA`, `${formatFCFA(fraisTransportSelectionne)} FCFA`]] : []),
+        ],
         startY: yInfo + 6,
         margin: { left: 14, right: 14 },
         tableWidth: 182,
@@ -2951,16 +2975,25 @@ function CommandeClientPanel({ produits, user }) {
     try {
       const token = localStorage.getItem('token');
       const lignes = panier.map(i => ({ produitId: i.id, quantite: i.quantite }));
-      const res = await axios.post('http://localhost:8080/api/commandes-client', { clientNom, lignes }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post('http://localhost:8080/api/commandes-client', {
+        clientNom,
+        lignes,
+        zoneLivraisonId: zoneId ? parseInt(zoneId) : null,
+        adresse: adresseClient || undefined,
+        contact: contactClient || undefined,
+        interlocuteur: interlocuteur || undefined,
+        transporteur: transporteur || undefined,
+      }, { headers: { Authorization: `Bearer ${token}` } });
       setResult({ commande: res.data, lignes: panier, total: res.data.montantTotal });
       toast.success('Commande créée avec succès');
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur');
+      notifyError(err);
     } finally { setSubmitting(false); }
   };
 
   const nouvelleCommande = () => {
     setPanier([]); setQuantites({}); setClientNom(''); setResult(null); setSearchTerm('');
+    setAdresseClient(''); setContactClient(''); setInterlocuteur(''); setTransporteur(''); setZoneId('');
   };
 
   const filteredProduits = produits.filter(p => p.quantiteStock > 0 && (p.nom?.toLowerCase().includes(searchTerm.toLowerCase()) || p.reference?.toLowerCase().includes(searchTerm.toLowerCase())));
@@ -2973,6 +3006,7 @@ function CommandeClientPanel({ produits, user }) {
             body * { visibility: hidden; }
             .pt-coupon, .pt-coupon * { visibility: visible; }
             .pt-coupon { position: absolute; top: 0; left: 0; width: 100%; }
+            .pt-print-hide { display: none !important; }
           }
         `}</style>
         <div className="pt-coupon" style={{ ...styles.card, maxWidth: 420, width: '100%', textAlign: 'center' }}>
@@ -2991,10 +3025,10 @@ function CommandeClientPanel({ produits, user }) {
           }}>{result.commande.code}</div>
 
           {result.commande.clientNom && (
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>Client : <strong>{result.commande.clientNom}</strong></div>
+            <div className="pt-print-hide" style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>Client : <strong>{result.commande.clientNom}</strong></div>
           )}
 
-          <div style={{ textAlign: 'left', margin: '18px 0', borderTop: '1px dashed var(--border-color)', paddingTop: 14 }}>
+          <div className="pt-print-hide" style={{ textAlign: 'left', margin: '18px 0', borderTop: '1px dashed var(--border-color)', paddingTop: 14 }}>
             {result.lignes.map(l => (
               <div key={l.id || `${l.produitId}-${l.quantite}`} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', color: 'var(--text-primary)' }}>
                 <span>{l.nom || 'Produit'} × {l.quantite}</span>
@@ -3003,12 +3037,12 @@ function CommandeClientPanel({ produits, user }) {
             ))}
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 18, borderTop: '2px solid var(--text-primary)', paddingTop: 12, color: 'var(--text-primary)' }}>
+          <div className="pt-print-hide" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: 18, borderTop: '2px solid var(--text-primary)', paddingTop: 12, color: 'var(--text-primary)' }}>
             <span>TOTAL</span>
             <span>{total.toLocaleString('fr-FR')} FCFA</span>
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+          <div className="pt-print-hide" style={{ display: 'flex', gap: 10, marginTop: 24 }}>
             <button onClick={() => window.print()} style={{ ...styles.btnPrimary, flex: 1, justifyContent: 'center' }}>🖨️ Imprimer</button>
             <button onClick={nouvelleCommande} style={{ ...styles.btnPrimary, flex: 1, justifyContent: 'center', background: '#10b981' }}>➕ Nouvelle commande</button>
           </div>
@@ -3079,6 +3113,34 @@ function CommandeClientPanel({ produits, user }) {
             <input type="text" style={styles.input} value={clientNom} onChange={e => setClientNom(e.target.value)} placeholder="Ex: M. Diallo" />
           </div>
 
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Zone de livraison</label>
+            <select style={styles.input} value={zoneId} onChange={e => setZoneId(e.target.value)}>
+              <option value="">-- Aucune (retrait en magasin) --</option>
+              {zones.map(z => <option key={z.id} value={z.id}>{z.nom} — {z.prixTransport.toLocaleString('fr-FR')} FCFA</option>)}
+            </select>
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Adresse du client</label>
+            <input type="text" style={styles.input} value={adresseClient} onChange={e => setAdresseClient(e.target.value)} placeholder="Adresse du client (rue, ville)" />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Contact</label>
+            <input type="text" style={styles.input} value={contactClient} onChange={e => setContactClient(e.target.value)} placeholder="Téléphone ou email" />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Interlocuteur</label>
+            <input type="text" style={styles.input} value={interlocuteur} onChange={e => setInterlocuteur(e.target.value)} placeholder="Nom de l'interlocuteur" />
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Transporteur</label>
+            <input type="text" style={styles.input} value={transporteur} onChange={e => setTransporteur(e.target.value)} placeholder="Nom du transporteur (optionnel)" />
+          </div>
+
           {panier.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
               <div style={{ fontSize: 36, marginBottom: 10 }}>🛒</div>
@@ -3106,7 +3168,13 @@ function CommandeClientPanel({ produits, user }) {
           )}
 
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Sous-total HT</span><span>{totalHT.toLocaleString('fr-FR')} FCFA</span></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>Sous-total produits HT</span><span>{totalProduitsHT.toLocaleString('fr-FR')} FCFA</span></div>
+            {fraisTransportSelectionne > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-secondary)', padding: '4px 0' }}>
+                <span>Transport ({zoneSelectionnee?.nom})</span>
+                <span>{fraisTransportSelectionne.toLocaleString('fr-FR')} FCFA</span>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}><span>TVA (18%)</span><span>{tva.toLocaleString('fr-FR')} FCFA</span></div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14 }}>
@@ -3158,7 +3226,7 @@ function CaissierPanel({ user }) {
       setCommande(res.data.commande);
       setLignes(res.data.lignes);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Commande introuvable');
+      notifyError(err, 'Commande introuvable');
     } finally { setSearching(false); }
   };
 
@@ -3188,7 +3256,7 @@ function CaissierPanel({ user }) {
         toast.success('📥 Réseau indisponible — paiement mis en attente');
         setShowPaymentModal(false);
       } else {
-        toast.error(err.response?.data?.error || "Erreur lors de l'encaissement");
+        notifyError(err, "Erreur lors de l'encaissement");
       }
     } finally { setPaying(false); }
   };
@@ -3446,6 +3514,8 @@ function StockeurPanel({ user }) {
   const [lignes, setLignes] = useState([]);
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
+  const [bonLivraison, setBonLivraison] = useState(null);
+  const [lignesResultat, setLignesResultat] = useState([]);
   const [enAttente, setEnAttente] = useState([]);
   const [loadingListe, setLoadingListe] = useState(true);
   const [printerName, setPrinterName] = useState(localStorage.getItem('printerName') || '');
@@ -3479,7 +3549,7 @@ function StockeurPanel({ user }) {
       setLignes(res.data.lignes);
       setCodeInput(c);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Bon de retrait introuvable');
+      notifyError(err, 'Bon de retrait introuvable');
     } finally { setSearching(false); }
   };
 
@@ -3487,17 +3557,203 @@ function StockeurPanel({ user }) {
     setValidating(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`http://localhost:8080/api/bons-retrait/code/${bonRetrait.code}/valider`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post(`http://localhost:8080/api/bons-retrait/code/${bonRetrait.code}/valider`, {}, { headers: { Authorization: `Bearer ${token}` } });
+      setBonLivraison(res.data.bonLivraison);
+      setLignesResultat(res.data.lignes);
       setValidated(true);
       toast.success('Retrait validé avec succès');
       fetchEnAttente();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la validation');
+      notifyError(err, 'Erreur lors de la validation');
     } finally { setValidating(false); }
   };
 
   const nouvelleRecherche = () => {
     setCodeInput(''); setBonRetrait(null); setLignes([]); setValidated(false);
+  };
+
+  const genererBonLivraisonPDF = async () => {
+    try {
+      const footer = await imageToDataUrl(factureFooter);
+      const logoImg = await imageToDataUrl(logo);
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const footerH = (footer.height / footer.width) * pageWidth;
+
+      // ===== EN-TÊTE =====
+      const logoW = 45;
+      const logoH = (logoImg.height / logoImg.width) * logoW;
+      doc.addImage(logoImg.dataUrl, 'PNG', 14, 12, logoW, logoH);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.setTextColor(30, 27, 75);
+      doc.text('BON DE LIVRAISON', pageWidth - 14, 28, { align: 'right' });
+
+      doc.setDrawColor(249, 115, 22);
+      doc.setLineWidth(1.2);
+      doc.line(14, 42, pageWidth - 14, 42);
+
+      let y = 52;
+
+      // ===== STATUT =====
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, y, pageWidth - 28, 10, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Statut de la livraison :', 18, y + 7);
+      doc.setTextColor(16, 185, 129);
+      doc.text('LIVRÉE', 90, y + 7);
+      y += 20;
+
+      // ===== INFOS CLIENT (gauche) / INFOS BL (droite) =====
+      const leftX = 14, rightLabelX = 118, rightValueX = 160;
+      const drawField = (x, labelY, label, value, lineWidth) => {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(label, x, labelY);
+        doc.setDrawColor(180, 190, 200);
+        const labelW = doc.getTextWidth(label) + 4;
+        doc.line(x + labelW, labelY, x + labelW + lineWidth, labelY);
+        if (value) {
+          doc.setFont('helvetica', 'normal');
+          doc.text(String(value), x + labelW + 2, labelY - 1);
+        }
+      };
+
+      const clientNom = bonRetrait?.commandeClient?.clientNom || '';
+      const zoneNom = bonRetrait?.commandeClient?.zoneLivraisonNom || '';
+
+      drawField(leftX, y, 'Nom du client :', clientNom, 55);
+      drawField(rightLabelX - 104, y, '', '', 0); // no-op placeholder to keep alignment consistent
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+      doc.text('N° BL :', rightLabelX, y);
+      doc.line(rightLabelX + 18, y, pageWidth - 14, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(bonLivraison?.numero || '', rightLabelX + 20, y - 1);
+
+      y += 10;
+      drawField(leftX, y, 'Adresse du client :', '', 55);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+      doc.text('Date livraison :', rightLabelX, y);
+      doc.line(rightLabelX + 28, y, pageWidth - 14, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date().toLocaleDateString('fr-FR'), rightLabelX + 30, y - 1);
+
+      y += 10;
+      drawField(leftX, y, 'Contact :', '', 55);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+      doc.text('N° Commande :', rightLabelX, y);
+      doc.line(rightLabelX + 27, y, pageWidth - 14, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(bonRetrait?.commandeClient?.code || '', rightLabelX + 29, y - 1);
+
+      y += 10;
+      drawField(leftX, y, 'Votre référence :', '', 55);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+      doc.text('Chantier / Site :', rightLabelX, y);
+      doc.line(rightLabelX + 28, y, pageWidth - 14, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(zoneNom, rightLabelX + 30, y - 1);
+
+      y += 10;
+      drawField(leftX, y, 'Interlocuteur :', '', 55);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(30, 41, 59);
+      doc.text('Transporteur :', rightLabelX, y);
+      doc.line(rightLabelX + 25, y, pageWidth - 14, y);
+
+      y += 16;
+
+      // ===== TABLEAU PRODUITS =====
+      autoTable(doc, {
+        head: [['N°', 'Désignation', 'Référence', 'Qté commandée', 'Unité', 'Qté livrée', 'Qté reçue']],
+        body: lignesResultat.map((l, i) => [
+          (i + 1).toString(),
+          l.produit?.nom || '',
+          l.produit?.reference || '',
+          l.quantite.toString(),
+          'U',
+          l.quantite.toString(),
+          '',
+        ]),
+        startY: y,
+        margin: { left: 14, right: 14 },
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 6, lineColor: [200, 200, 200], lineWidth: 0.2, valign: 'middle' },
+        headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          3: { cellWidth: 24, halign: 'center' },
+          4: { cellWidth: 18, halign: 'center' },
+          5: { cellWidth: 22, halign: 'center' },
+          6: { cellWidth: 22, halign: 'center' },
+        },
+      });
+
+      y = doc.lastAutoTable.finalY + 12;
+
+      // ===== OBSERVATIONS =====
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text('Observations / Remarques', 14, y);
+      y += 4;
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(14, y, pageWidth - 28, 22);
+      y += 34;
+
+      // ===== SIGNATURES =====
+      const colW = (pageWidth - 28 - 8) / 2;
+      doc.setFillColor(30, 27, 75);
+      doc.rect(14, y, colW, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.text('LIVRÉ PAR (POWERTECH)', 18, y + 5.5);
+
+      doc.setFillColor(249, 115, 22);
+      doc.rect(14 + colW + 8, y, colW, 8, 'F');
+      doc.text('REÇU PAR (CLIENT)', 14 + colW + 8 + 4, y + 5.5);
+
+      y += 14;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(30, 41, 59);
+      doc.text(`Nom : ${bonLivraison?.stockeurNom || ''}`, 14, y);
+      doc.text(`Nom : ${clientNom}`, 14 + colW + 8, y);
+      y += 7;
+      doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 14, y);
+      doc.text('Date :', 14 + colW + 8, y);
+
+      y += 6;
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(14, y, colW, 24);
+      doc.rect(14 + colW + 8, y, colW, 24);
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text('Signature et cachet', 17, y + 5);
+      doc.text('Signature et cachet', 14 + colW + 8 + 3, y + 5);
+
+      y += 32;
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(7.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text(
+        "NB : ce bon fait foi de réception de marchandise. Toute anomalie (quantité, état des articles) doit être mentionnée dans les observations avant signature.",
+        14, y, { maxWidth: pageWidth - 28 }
+      );
+
+      // ===== PIED DE PAGE (image officielle) =====
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.addImage(footer.dataUrl, 'PNG', 0, pageHeight - footerH, pageWidth, footerH);
+
+      doc.save(`${bonLivraison?.numero || 'BL'}.pdf`);
+    } catch (err) {
+      toast.error('Erreur lors de la génération du bon de livraison');
+      console.error(err);
+    }
   };
 
   // ===== ÉCRAN CONFIRMATION =====
@@ -3516,6 +3772,9 @@ function StockeurPanel({ user }) {
           <button onClick={nouvelleRecherche} style={{ ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '13px' }}>
             🔎 Nouvelle recherche
           </button>
+          {bonLivraison && (
+            <button onClick={genererBonLivraisonPDF} style={{ ...styles.btnPrimary, width: '100%', justifyContent: 'center', padding: '13px', marginTop: 10 }}>🖨️ Bon de livraison</button>
+          )}
         </div>
       </div>
     );
@@ -3682,7 +3941,7 @@ function RapportActivitePanel({ user }) {
       setSubmitted(true);
       toast.success('Rapport soumis avec succès');
     } catch (err) {
-      const msg = err.response?.data?.error || 'Erreur';
+      const msg = getErrorMessage(err);
       toast.error(msg);
       if (msg.includes('déjà')) setSubmitted(true);
     } finally { setLoading(false); }
@@ -3858,7 +4117,7 @@ function ClotureShowroomPanel() {
       toast.success('Commande annulée');
       fetchAll(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur');
+      notifyError(err);
     } finally { setAnnulationLoading(null); }
   };
 

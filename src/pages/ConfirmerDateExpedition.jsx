@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { notifyError } from '../utils/notify';
 
 export default function ConfirmerDateExpedition() {
   const { token } = useParams();
@@ -21,7 +22,7 @@ export default function ConfirmerDateExpedition() {
       setCommande(res.data);
       setLoading(false);
     } catch (err) {
-      toast.error('Erreur lors du chargement');
+      notifyError(err, 'Erreur lors du chargement');
       setLoading(false);
     }
   };
@@ -39,7 +40,7 @@ export default function ConfirmerDateExpedition() {
       toast.success('Date d\'expédition confirmée');
       setSubmitted(true);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur');
+      notifyError(err);
     } finally {
       setSubmitting(false);
     }

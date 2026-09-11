@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
+import { getErrorMessage } from '../utils/notify';
 
 export default function AccepterModification() {
   const { token } = useParams();
@@ -19,7 +20,7 @@ export default function AccepterModification() {
         setTimeout(() => window.close(), 3000);
       } catch (err) {
         setStatus('error');
-        setMessage(err.response?.data?.message || err.response?.data?.error || 'Une erreur est survenue lors de l’acceptation.');
+        setMessage(getErrorMessage(err, 'Une erreur est survenue lors de l’acceptation.'));
         const audio = new Audio('/sounds/error.wav');
         audio.volume = 0.3;
         audio.play().catch(() => console.log('Son bloqué'));

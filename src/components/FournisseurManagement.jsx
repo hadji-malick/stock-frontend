@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import { notifyError } from '../utils/notify';
 import { validate, required, email, phone } from '../utils/validators';
 
 const SUPP_COLORS = ['#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316'];
@@ -157,7 +158,7 @@ export default function FournisseurManagement() {
       setFournisseurs(res.data);
     } catch (err) {
       console.error('Erreur chargement fournisseurs', err);
-      toast.error('Erreur lors du chargement des fournisseurs');
+      notifyError(err, 'Erreur lors du chargement des fournisseurs');
     }
   };
 
@@ -184,7 +185,7 @@ export default function FournisseurManagement() {
       setErrors({});
       fetchFournisseurs();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de l\'ajout');
+      notifyError(err, 'Erreur lors de l\'ajout');
     } finally { setLoading(false); }
   };
 
@@ -207,7 +208,7 @@ export default function FournisseurManagement() {
       setErrors({});
       fetchFournisseurs();
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Erreur lors de la modification');
+      notifyError(err, 'Erreur lors de la modification');
     } finally { setLoading(false); }
   };
 
@@ -219,7 +220,7 @@ export default function FournisseurManagement() {
         toast.success('🗑️ Fournisseur supprimé');
         fetchFournisseurs();
       } catch (err) {
-        toast.error(err.response?.data?.error || 'Erreur lors de la suppression');
+        notifyError(err, 'Erreur lors de la suppression');
       }
     }
   };

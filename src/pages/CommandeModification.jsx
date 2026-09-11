@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { notifyError } from '../utils/notify';
 
 export default function CommandeModification() {
   const { token } = useParams();
@@ -46,7 +47,7 @@ export default function CommandeModification() {
       setPrix(initialPrix);
       setLoading(false);
     } catch (err) {
-      toast.error('Erreur lors du chargement');
+      notifyError(err, 'Erreur lors du chargement');
       setLoading(false);
     }
   };
@@ -88,7 +89,7 @@ const handleSubmit = async () => {
     navigate('/confirmation-modification');
   } catch (err) {
     console.error("Erreur:", err);
-    toast.error(err.response?.data?.error || 'Erreur');
+    notifyError(err);
     playErrorSound();
   } finally {
     setSubmitting(false);
